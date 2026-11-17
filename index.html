@@ -271,7 +271,7 @@
       listening = true;
       micBtn.classList.add('listening');
       micBtn.textContent = '🎤 Слушаю…';
-      heardEl.textContent = 'Скажи, например: «двадцать пять умножить на четыре»';
+      heardEl.textContent = 'Скажи, например: «24 умножить на 6» или «24 х 6»';
     };
 
     rec.onend = () => {
@@ -327,33 +327,38 @@
     'тысяча': 1000
   };
 
+  function hasNumberWord(w) {
+    return Object.prototype.hasOwnProperty.call(NUMBER_WORDS, w);
+  }
+
   /* ---------- Разбор фразы в выражение ---------- */
 
   function parseCommand(raw) {
     let t = String(raw).toLowerCase().replace(/ё/g, 'е');
 
-    // всё после «равно» отбрасываем
-    t = t.replace(/\s+(равно|равняется)[\s\S]*$/, ' ');
+    // всё после «равно» / «будет» отбрасываем
+    t = t.replace(/\s+(равно|равняется|будет)[\s\S]*$/, ' ');
 
-    // операции: сначала словосочетания
+    // символы операций, как их иногда подставляет распознавание
+    t = t.replace(/×/g, ' * ').replace(/÷/g, ' / ').replace(/[−–—]/g, ' - ');
+
+    // «24х6», «24 x 6» → умножение
+    t = t.replace(/(\d)\s*[хx]\s*(\d)/g, '$1 * $2');
+
+    // операции словами (только целые слова, чтобы не портить «сделай»)
     t = t
-      .replace(/умножить\s+на/g, ' * ')
-      .replace(/помножить\s+на/g, ' * ')
-      .replace(/разделить\s+на/g, ' / ')
-      .replace(/поделить\s+на/g, ' / ')
-      .replace(/делить\s+на/g, ' / ')
-      .replace(/умножить/g, ' * ')
-      .replace(/помножить/g, ' * ')
-      .replace(/разделить/g, ' / ')
-      .replace(/поделить/g, ' / ')
-      .replace(/делить/g, ' / ')
-      .replace(/плюс/g, ' + ')
-      .replace(/прибавить/g, ' + ')
-      .replace(/сложить/g, ' + ')
-      .replace(/минус/g, ' - ')
-      .replace(/отнять/g, ' - ')
-      .replace(/вычесть/g, ' - ')
-      .replace(/запятая/g, ' . ');
+      .replace(/(^|\s)умнож\w*(\s+на)?/g, ' * ')
+      .replace(/(^|\s)помнож\w*(\s+на)?/g, ' * ')
+      .replace(/(^|\s)раздел\w*(\s+на)?/g, ' / ')
+      .replace(/(^|\s)подел\w*(\s+на)?/g, ' / ')
+      .replace(/(^|\s)дел\w*(\s+на)?/g, ' / ')
+      .replace(/(^|\s)плюс\w*/g, ' + ')
+      .replace(/(^|\s)прибав\w*/g, ' + ')
+      .replace(/(^|\s)сложить/g, ' + ')
+      .replace(/(^|\s)минус\w*/g, ' - ')
+      .replace(/(^|\s)отня\w*/g, ' - ')
+      .replace(/(^|\s)вычт\w*/g, ' - ')
+      .replace(/(^|\s)запят\w*/g, ' . ');
 
     // оставляем только буквы, цифры, знаки операций и точку
     t = t.replace(/[^a-zа-я0-9+\-*/. ]/g, ' ');
@@ -364,6 +369,7 @@
     let intPart = 0;
     let fracStr = null;
     let hasNumber = false;
+    let lastArabic = false;   // предыдущее число было записано цифрами
 
     const pushNumber = () => {
       if (!hasNumber) return;
@@ -376,26 +382,37 @@
       intPart = 0;
       fracStr = null;
       hasNumber = false;
+      lastArabic = false;
     };
 
     for (const w of words) {
       if (/^\d+$/.test(w)) {
         const v = parseInt(w, 10);
+        // «24 6» — это ДВА разных числа, а не 30
+        if (hasNumber && lastArabic) pushNumber();
         if (fracStr !== null) fracStr += String(v);
         else intPart += v;
         hasNumber = true;
-      } else if (Object.prototype.hasOwnProperty.call(NUMBER_WORDS, w)) {
+        lastArabic = true;
+      } else if (hasNumberWord(w)) {
+        // «двадцать пять» — одно число 25
+        if (hasNumber && lastArabic) pushNumber();
         const v = NUMBER_WORDS[w];
         if (fracStr !== null) fracStr += String(v);
         else intPart += v;
         hasNumber = true;
+        lastArabic = false;
       } else if (w === '.') {
         if (hasNumber && fracStr === null) fracStr = '';
       } else if (w === '+' || w === '-' || w === '*' || w === '/') {
         pushNumber();
         tokens.push(w);
+      } else if (w === 'х' || w === 'x' || w === 'икс' || w === 'звездочка' || w === 'на') {
+        // «24 х 6», «двадцать на четыре» — это умножение
+        pushNumber();
+        tokens.push('*');
       }
-      // остальные слова («сколько», «будет», «посчитай») просто игнорируем
+      // остальные слова («сколько», «посчитай») просто игнорируем
     }
     pushNumber();
 
@@ -454,8 +471,12 @@
     const result = evaluateTokens(tokens);
 
     if (result === null) {
-      heardEl.textContent = 'Услышано: «' + text + '» — не поняла выражение';
-      speak('Не поняла выражение');
+      // два числа без действия — подскажем, что назвать
+      const numbersOnly = tokens.length >= 2 && tokens.every(v => typeof v === 'number');
+      heardEl.textContent = numbersOnly
+        ? 'Услышано: «' + text + '» — не поняла действие, скажи «умножить», «плюс», «минус» или «делить»'
+        : 'Услышано: «' + text + '» — не поняла выражение';
+      speak(numbersOnly ? 'Не поняла действие' : 'Не поняла выражение');
       return;
     }
 
@@ -472,6 +493,7 @@
     current = String(rounded);
     previous = null; op = null; fresh = true;
     update();
+    heardEl.textContent = 'Услышано: «' + text + '» → ' + rounded;
     beep(880, 0.14);
     speak('Равно ' + rounded);
   }

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Калькулятор">
+  <rect width="512" height="512" rx="112" fill="#2f6fff"/>
+  <g fill="#ffffff">
+    <rect x="128" y="200" width="256" height="40" rx="20"/>
+    <rect x="128" y="272" width="256" height="40" rx="20"/>
+  </g>
+</svg>

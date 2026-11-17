@@ -10,6 +10,10 @@
    Адрес перехода тоже набирается двумя цифрами, но это НОМЕР
    ШАГА (адрес ячейки), а не номер инструкции: пересчёт делает
    ядро через compile().addr.
+
+   Кнопки П→X и X→П работают в обоих режимах: в АВТ — выполняют
+   операцию с выбранным регистром, в ПРГ — вставляют в программу
+   команду с кодом 0x60+регистр или 0x40+регистр.
    ============================================================ */
 (function(global){
 "use strict";
@@ -25,6 +29,7 @@ var S = {
   addr: '',
   waitAddr: 0,
   regAct: null,
+  regProg: null,
   msg: '',
   m: null
 };
@@ -124,6 +129,15 @@ function buildKeys(){
 function press(act, val){
   S.msg = '';
 
+  /* в ПРГ ждём номер регистра для П→X / X→П */
+  if(S.regProg != null && (act === 'digit' || act === 'regkey')){
+    addRegCode(val);
+    render();
+    return;
+  }
+  /* любая другая кнопка отменяет это ожидание */
+  if(S.regProg != null) S.regProg = null;
+
   if(act === 'digit' || act === 'regkey'){
     if(S.regAct){ doReg(val); render(); return; }
     if(S.mode === 'PRG'){ typeCode(val); render(); return; }
@@ -140,6 +154,16 @@ function press(act, val){
   }
 
   if(act === 'reg'){
+    if(S.mode === 'PRG'){
+      S.regProg = (val === 'read') ? 0x60 : 0x40;
+      S.regAct = null;
+      S.waitAddr = 0;
+      S.addr = '';
+      S.buf = '';
+      S.msg = (val === 'read' ? 'П→X' : 'X→П') + ': выбери регистр 0…d';
+      render();
+      return;
+    }
     S.regAct = val;
     S.msg = val === 'read' ? 'выбери регистр для П→X' : 'выбери регистр для X→П';
     render();
@@ -170,6 +194,17 @@ function doReg(val){
   else S.m.R[r] = Core.norm(S.m.X);
   S.msg = (S.regAct === 'read' ? 'П→X ' : 'X→П ') + 'R' + r;
   S.regAct = null;
+}
+
+/* вставка команды обращения к регистру в программу (ПРГ) */
+function addRegCode(val){
+  var r = Number(val);
+  var code = S.regProg + r;
+  var name = Core.cmdName(code);
+  if(name === '?'){ S.msg = 'кода ' + code + ' у Б3-34 нет'; S.regProg = null; return; }
+  S.prog.push({ c: code });
+  S.msg = 'добавлено: ' + name + ' (' + code + ')';
+  S.regProg = null;
 }
 
 /* ---------------- режим АВТ: вычисления ---------------- */
@@ -290,7 +325,8 @@ function render(){
     var p = [S.mode === 'PRG' ? 'ПРГ' : 'АВТ'];
     if(S.mode === 'PRG'){
       p.push('шагов в программе: ' + S.prog.length);
-      if(S.waitAddr) p.push('жду адрес: ' + (S.addr || '—'));
+      if(S.regProg != null) p.push((S.regProg === 0x60 ? 'П→X' : 'X→П') + ': регистр?');
+      else if(S.waitAddr) p.push('жду адрес: ' + (S.addr || '—'));
       else if(S.buf) p.push('код: ' + S.buf);
     }
     if(S.regAct) p.push(S.regAct === 'read' ? 'П→X: регистр?' : 'X→П: регистр?');
@@ -418,6 +454,7 @@ function loadProg(p){
   S.addr = '';
   S.waitAddr = 0;
   S.regAct = null;
+  S.regProg = null;
   S.msg = 'загружено: ' + p.title + '. Нажми С/П';
   setTab('calc');
 }
@@ -509,14 +546,14 @@ function init(){
   var mBtn = $('btnMode');
   if(mBtn) mBtn.addEventListener('click', function(){
     S.mode = (S.mode === 'PRG') ? 'AUT' : 'PRG';
-    S.buf = ''; S.addr = ''; S.waitAddr = 0; S.regAct = null;
+    S.buf = ''; S.addr = ''; S.waitAddr = 0; S.regAct = null; S.regProg = null;
     S.msg = S.mode === 'PRG' ? 'режим ПРГ: коды набираются двумя цифрами' : 'режим АВТ';
     render();
   });
 
   var cBtn = $('btnClear');
   if(cBtn) cBtn.addEventListener('click', function(){
-    S.prog = []; S.buf = ''; S.addr = ''; S.waitAddr = 0;
+    S.prog = []; S.buf = ''; S.addr = ''; S.waitAddr = 0; S.regProg = null;
     S.msg = 'программа стёрта';
     render();
   });

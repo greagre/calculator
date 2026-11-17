@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Б3-34 v2 — ядро и проверка</title>
+<style>
+  body{margin:0;padding:16px 14px 40px;background:#f6f7f9;color:#111;
+       font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  h1{font-size:18px;margin:0 0 6px}
+  p.sub{margin:0 0 16px;color:#555;font-size:13px;line-height:1.45}
+  button{font:inherit;padding:12px 18px;border:0;border-radius:10px;
+         background:#1a73e8;color:#fff;font-weight:600;margin:0 8px 10px 0}
+  button.ghost{background:#e3e8ee;color:#111}
+  button:active{transform:scale(.99)}
+  table{width:100%;border-collapse:collapse;margin-top:12px;font-size:13px}
+  th,td{padding:8px 6px;border-bottom:1px solid #e0e0e0;text-align:left}
+  th{color:#666;font-weight:600;font-size:12px}
+  td.num{font-variant-numeric:tabular-nums}
+  .ok{color:#0a7d32;font-weight:700}
+  .bad{color:#c62828;font-weight:700}
+  .sum{margin-top:16px;font-size:14px;font-weight:700}
+  .code{font-family:ui-monospace,Menlo,Consolas,monospace;color:#444;font-size:12px}
+  .lst{margin-top:14px}
+  .lst td{padding:5px 6px;border-bottom:1px solid #eee;font-size:13px}
+  .lst tr.addr td{color:#888}
+  .hint{color:#666;font-size:12px;margin-top:10px}
+</style>
+</head>
+<body>
+
+<h1>Б3-34 v2 — ядро и проверка</h1>
+<p class="sub">
+  Программа — список инструкций: адрес перехода указывается номером шага, а не ячейкой.
+  Ядро само раскладывает переход на три ячейки (команда + десятки + единицы).
+  Кнопка прогоняет все программы справочника и сверяет ответ с ожидаемым.
+</p>
+
+<button id="run">Прогнать проверку</button>
+<button id="show" class="ghost">Показать листинг «n!»</button>
+
+<div id="out"></div>
+<div id="lstBox"></div>
+
+<script src="core.js"></script>
+<script src="programs.js"></script>
+<script>
+(function(){
+"use strict";
+
+var out = document.getElementById('out');
+var lstBox = document.getElementById('lstBox');
+
+function check(){
+  var rows = [];
+  (window.B3PROGS || []).forEach(function(p){
+    var res = window.B3Core.run(p.code, { R: p.data || {}, maxSteps: 200000 });
+    var ok = !res.err && Math.abs(res.value - p.expect) <= Math.max(1e-6, Math.abs(p.expect) * 1e-7);
+    rows.push({
+      title: p.title,
+      cells: res.cells,
+      expect: p.expect,
+      got: res.err ? 'ЕГГОГ' : window.B3Core.fmt(res.value),
+      steps: res.steps,
+      ok: ok,
+      errors: res.errors || []
+    });
+  });
+
+  var html = '<table><thead><tr><th>Программа</th><th>Ячеек</th><th>Ожидалось</th><th>Получилось</th><th>Шагов</th></tr></thead><tbody>';
+  rows.forEach(function(r){
+    html += '<tr>' +
+      '<td>' + r.title + '</td>' +
+      '<td class="num">' + r.cells + '</td>' +
+      '<td class="num">' + r.expect + '</td>' +
+      '<td class="num ' + (r.ok ? 'ok' : 'bad') + '">' + r.got + '</td>' +
+      '<td class="num">' + r.steps + '</td>' +
+    '</tr>';
+  });
+  html += '</tbody></table>';
+
+  var bad = rows.filter(function(r){ return !r.ok; }).length;
+  html += '<div class="sum">' +
+    (bad ? '⚠️ Не сошлись: ' + bad + ' из ' + rows.length
+         : '✅ Все ' + rows.length + ' программ считаются верно') +
+    '</div>';
+
+  out.innerHTML = html;
+}
+
+function showListing(id){
+  var p = null;
+  (window.B3PROGS || []).forEach(function(x){ if(x.id === id) p = x; });
+  if(!p){ lstBox.innerHTML = ''; return; }
+
+  var built = window.B3Core.compile(p.code);
+  var rows = window.B3Core.listing(built.cells, built.length);
+
+  var html = '<div class="lst"><div class="code">' + p.title + ' — ' +
+             built.length + ' ячеек' +
+             (built.errors.length ? ' · ошибки: ' + built.errors.join('; ') : '') +
+             '</div><table><thead><tr><th>Адр</th><th>Код</th><th>Команда</th></tr></thead><tbody>';
+  rows.forEach(function(r){
+    html += '<tr class="' + (r.isAddr ? 'addr' : '') + '">' +
+      '<td class="num">' + String(r.addr).padStart(2,'0') + '</td>' +
+      '<td class="num">' + r.dec + '</td>' +
+      '<td>' + r.name + '</td></tr>';
+  });
+  html += '</tbody></table><div class="hint">Коды десятичные — ровно те, что набираются на клавишах.</div></div>';
+
+  lstBox.innerHTML = html;
+}
+
+document.getElementById('run').addEventListener('click', check);
+document.getElementById('show').addEventListener('click', function(){ showListing('fact'); });
+
+})();
+</script>
+</body>
+</html>

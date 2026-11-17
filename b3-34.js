@@ -3,8 +3,10 @@
 
 /* ============================================================
    Электроника Б3-34 — логика
-   v3: темп ~5 шагов/с, 8 значащих цифр + ЕГГОГ, панель регистров,
-       ИСПРАВЛЕНЫ условные переходы (были инвертированы)
+   v4: переходы занимают ТРИ ячейки — команда + две цифры адреса
+       (десятки, единицы), как у настоящего Б3-34.
+       Исправлены условные переходы (в v2 были инвертированы).
+       Темп ~5 шагов/с, 8 значащих цифр + ЕГГОГ, панель регистров.
    ============================================================ */
 
 var MAXDIG = 8;        /* значащих цифр мантиссы, как у оригинала */
@@ -79,9 +81,6 @@ function say(text){
 }
 
 /* ---------- арифметика в духе Б3-34 ---------- */
-/* Оригинал считает в двоично-десятичном коде с 8 значащими цифрами
-   и порядком в две цифры. Точную микросхему не повторяем, но правила
-   диапазона и разрядности соблюдаем: переполнение -> ЕГГОГ. */
 function norm(x){
   if(typeof x !== 'number' || isNaN(x) || !isFinite(x)) return NaN;
   if(x === 0) return 0;
@@ -150,6 +149,26 @@ function cmdName(c){
   if(c >= 0xC0 && c <= 0xCD) return 'К x<0 ' + REG_NAMES[c & 15];
   if(c >= 0xE0 && c <= 0xED) return 'К x=0 ' + REG_NAMES[c & 15];
   return '?';
+}
+
+/* Команды, после которых в программе идут ДВЕ ячейки с цифрами адреса.
+   У настоящего Б3-34 такой переход занимает три шага:
+   сама команда, десятки адреса, единицы адреса. */
+function isJumpCmd(c){
+  return c === 0x51 || c === 0x53 ||
+         c === 0x57 || c === 0x59 || c === 0x5C || c === 0x5E ||
+         c === 0x5D || c === 0x5B || c === 0x58 || c === 0x5A;
+}
+
+/* Прочитать адрес перехода, записанный двумя ячейками после команды.
+   Возвращает -1, если в ячейках не цифры или адрес вне 0..97. */
+function jumpAddr(ip){
+  var a = ST.prog[(ip + 1) % 98];
+  var b = ST.prog[(ip + 2) % 98];
+  if(a > 9 || b > 9) return -1;
+  var v = a * 10 + b;
+  if(v < 0 || v > 97) return -1;
+  return v;
 }
 
 /* ---------- стек ---------- */
@@ -543,54 +562,91 @@ function writeStep(code){
   ST.ip = (ST.ip + 1) % 98;
 }
 
+/* Команда с адресом: занимает ТРИ ячейки — сама команда и две цифры адреса.
+   После вызова этой функции эмулятор ждёт две цифры (десятки, единицы). */
 function writeJump(code){
-  if(ST.ip >= 97){ hint('Нет места для адреса перехода'); clickErr(); return; }
+  if(ST.ip > 95){
+    hint('Для перехода нужно три ячейки (команда + две цифры адреса). Свободного места не хватает.');
+    clickErr();
+    return;
+  }
   ST.prog[ST.ip] = code;
-  ST.ip++;
+  ST.ip = (ST.ip + 1) % 98;
   ST.await = 'addr';
   ST.addrBuf = '';
+  hint('Введи адрес перехода двумя цифрами (десятки, затем единицы)');
   render();
 }
 
 /* ---------- выполнение программы ---------- */
 function modAddr(v, r){
-  if(r >= 0 && r <= 3) return (v - 1 + 100) % 100;
-  if(r >= 4 && r <= 6) return (v + 1) % 100;
-  return v;
+  var a;
+  if(r >= 0 && r <= 3) a = (v - 1 + 100) % 100;
+  else if(r >= 4 && r <= 6) a = (v + 1) % 100;
+  else a = v;
+  if(a < 0 || a > 97) a = ((a % 98) + 98) % 98;
+  return a;
+}
+
+function badAddress(){
+  hint('Ошибка в адресе перехода: после команды должны стоять две цифры (00–97)');
+  ST.err = true;
+  ST.run = false;
+  clickErr();
+  render();
+  return 'stop';
 }
 
 function runStep(){
   var code = ST.prog[ST.ip];
   var hi = (code >> 4) & 15, lo = code & 15;
-  var addr = ST.prog[(ST.ip + 1) % 98];
+  var addr = -1;
 
   if(code === 0x50){ ST.run = false; clickOk(); return 'stop'; }
-  if(code === 0x51){ ST.ip = addr; return 'jump'; }
+  if(code === 0x51){
+    addr = jumpAddr(ST.ip);
+    if(addr < 0) return badAddress();
+    ST.ip = addr; return 'jump';
+  }
   if(code === 0x52){ ST.ip = ST.sub.length ? ST.sub.pop() : 0; return 'jump'; }
-  if(code === 0x53){ ST.sub.push((ST.ip + 2) % 98); ST.ip = addr; return 'jump'; }
+  if(code === 0x53){
+    addr = jumpAddr(ST.ip);
+    if(addr < 0) return badAddress();
+    ST.sub.push((ST.ip + 3) % 98);
+    ST.ip = addr; return 'jump';
+  }
   if(code === 0x54){ ST.ip++; return 'cont'; }
 
-  /* Условные переходы: при ВЫПОЛНЕННОМ условии идём по адресу,
-     при невыполненном — на следующую за адресом команду.
-     (в v2 было наоборот — исправлено) */
-  if(code === 0x57){ if(ST.X !== 0){ ST.ip = addr; } else { ST.ip += 2; } return 'jump'; }
-  if(code === 0x59){ if(ST.X >= 0){ ST.ip = addr; } else { ST.ip += 2; } return 'jump'; }
-  if(code === 0x5C){ if(ST.X < 0){ ST.ip = addr; } else { ST.ip += 2; } return 'jump'; }
-  if(code === 0x5E){ if(ST.X === 0){ ST.ip = addr; } else { ST.ip += 2; } return 'jump'; }
-
-  if(code === 0x5D || code === 0x5B || code === 0x58 || code === 0x5A){
-    var r = code === 0x5D ? 0 : (code === 0x5B ? 1 : (code === 0x58 ? 2 : 3));
-    ST.R[r] = norm(ST.R[r] - 1);
-    if(ST.R[r] !== 0){ ST.ip = addr; } else { ST.ip += 2; }
+  /* Условные переходы: три ячейки. Условие истинно -> идём по адресу,
+     ложно -> пропускаем команду и две цифры адреса. */
+  if(code === 0x57 || code === 0x59 || code === 0x5C || code === 0x5E){
+    addr = jumpAddr(ST.ip);
+    if(addr < 0) return badAddress();
+    var ok = false;
+    if(code === 0x57) ok = (ST.X !== 0);
+    else if(code === 0x59) ok = (ST.X >= 0);
+    else if(code === 0x5C) ok = (ST.X < 0);
+    else ok = (ST.X === 0);
+    ST.ip = ok ? addr : (ST.ip + 3) % 98;
     return 'jump';
   }
 
+  /* Циклы L0–L3: тоже три ячейки */
+  if(code === 0x5D || code === 0x5B || code === 0x58 || code === 0x5A){
+    addr = jumpAddr(ST.ip);
+    if(addr < 0) return badAddress();
+    var r = code === 0x5D ? 0 : (code === 0x5B ? 1 : (code === 0x58 ? 2 : 3));
+    ST.R[r] = norm(ST.R[r] - 1);
+    if(ST.R[r] !== 0){ ST.ip = addr; } else { ST.ip = (ST.ip + 3) % 98; }
+    return 'jump';
+  }
+
+  /* Косвенные команды: адрес берётся из регистра, поэтому занимают ОДНУ ячейку */
   if(hi === 8){ ST.ip = modAddr(ST.R[lo], lo); return 'jump'; }
-  if(hi === 0xA){ ST.sub.push((ST.ip + 2) % 98); ST.ip = modAddr(ST.R[lo], lo); return 'jump'; }
+  if(hi === 0xA){ ST.sub.push((ST.ip + 1) % 98); ST.ip = modAddr(ST.R[lo], lo); return 'jump'; }
   if(hi === 0xB){ ST.R[modAddr(ST.R[lo], lo) % 14] = norm(ST.X); ST.ip++; return 'cont'; }
   if(hi === 0xD){ pushValue(ST.R[modAddr(ST.R[lo], lo) % 14]); ST.ip++; return 'cont'; }
 
-  /* Косвенные условные переходы — та же логика: условие истинно -> переход */
   if(hi === 7){ if(ST.X !== 0){ ST.ip = modAddr(ST.R[lo], lo); } else { ST.ip++; } return 'jump'; }
   if(hi === 9){ if(ST.X >= 0){ ST.ip = modAddr(ST.R[lo], lo); } else { ST.ip++; } return 'jump'; }
   if(hi === 0xC){ if(ST.X < 0){ ST.ip = modAddr(ST.R[lo], lo); } else { ST.ip++; } return 'jump'; }
@@ -681,17 +737,19 @@ function runProgram(){
 function hint(t){ hintEl.textContent = t; }
 
 function onKey(k){
+  /* ввод адреса перехода: каждая цифра — своя ячейка программы */
   if(ST.await === 'addr' && k.a === 'digit'){
     clickKey();
+    ST.prog[ST.ip] = k.d;
+    ST.ip = (ST.ip + 1) % 98;
     ST.addrBuf += String(k.d);
     if(ST.addrBuf.length >= 2){
-      ST.prog[ST.ip] = parseInt(ST.addrBuf, 10) % 98;
-      ST.ip = (ST.ip + 1) % 98;
+      var full = parseInt(ST.addrBuf, 10);
+      hint('Адрес перехода записан: ' + p2(full));
       ST.addrBuf = '';
       ST.await = null;
-      hint('Адрес перехода записан');
     }else{
-      hint('Адрес: ' + ST.addrBuf + '_');
+      hint('Адрес: ' + ST.addrBuf + '_ (вторая цифра)');
     }
     render();
     return;
@@ -788,7 +846,7 @@ function onKey(k){
   if(k.a === 'bp'){
     clickKey();
     if(ST.mode === 'PRG'){ writeJump(0x51); }
-    else { ST.await = 'addr'; ST.addrBuf = ''; hint('Введи адрес перехода'); }
+    else { ST.await = 'addr'; ST.addrBuf = ''; hint('Введи адрес перехода двумя цифрами'); }
     ST.layer = 'main'; drawPad(); render();
     return;
   }
@@ -826,8 +884,8 @@ function onKey(k){
 }
 
 /* ---------- память: автосохранение ---------- */
-var LS_STATE = 'b334.state.v2';
-var LS_LIB = 'b334.programs.v1';
+var LS_STATE = 'b334.state.v3';
+var LS_LIB = 'b334.programs.v2';
 var saveTimer = null;
 
 function scheduleSave(){
@@ -849,7 +907,7 @@ function saveStateNow(){
 
 function loadState(){
   try{
-    var raw = localStorage.getItem(LS_STATE) || localStorage.getItem('b334.state.v1');
+    var raw = localStorage.getItem(LS_STATE);
     if(!raw) return false;
     var o = JSON.parse(raw);
     if(!o) return false;
@@ -1038,7 +1096,7 @@ function downloadFile(name, text, mime){
 function exportJSON(){
   var data = {
     format: 'b3-34',
-    version: 2,
+    version: 3,
     savedAt: new Date().toISOString(),
     registers: ST.R.slice(0, 14),
     settings: { sound: ST.soundOn, voice: ST.voiceOn, fast: ST.fast },
@@ -1058,14 +1116,23 @@ function exportJSON(){
   }
 }
 
+/* Листинг: у перехода две следующие ячейки — цифры адреса, их подписываем. */
 function listProgram(name, prog){
   var out = ['=== ' + name + ' ==='];
   var last = lastStep(prog);
   if(last < 0){
     out.push('(программа пуста)');
   }else{
+    var isAddr = {};
+    for(var k = 0; k <= last; k++){
+      if(isJumpCmd(prog[k])){ isAddr[k + 1] = true; isAddr[k + 2] = true; }
+    }
     for(var i = 0; i <= last; i++){
-      out.push(p2(i) + ': ' + hex2(prog[i]) + '   ' + cmdName(prog[i]));
+      if(isAddr[i]){
+        out.push(p2(i) + ': ' + (prog[i] & 15) + '   (цифра адреса перехода)');
+      }else{
+        out.push(p2(i) + ': ' + hex2(prog[i]) + '   ' + cmdName(prog[i]));
+      }
     }
   }
   out.push('');
@@ -1076,6 +1143,7 @@ function exportTXT(){
   var parts = [];
   parts.push('ЭЛЕКТРОНИКА Б3-34 — листинг программ');
   parts.push('сохранено: ' + new Date().toLocaleString('ru-RU'));
+  parts.push('переход занимает 3 шага: команда + десятки адреса + единицы адреса');
   parts.push('формат строки: АДРЕС: КОД  НАЗВАНИЕ КОМАНДЫ');
   parts.push('');
   parts.push(listProgram('Текущая программа', ST.prog));
@@ -1137,7 +1205,8 @@ function importJSON(o){
   drawPad();
   renderLib();
   render();
-  hint('Загружено из файла: программ — ' + added + (cur ? ', текущая программа в памяти' : ''));
+  hint('Загружено из файла: программ — ' + added + (cur ? ', текущая программа в памяти' : '') +
+       '. Внимание: файлы старого формата (до v3) могли сохранять переходы в 2 ячейки — проверь адреса.');
   clickOk();
   say('файл загружен');
 }
@@ -1163,15 +1232,21 @@ function importTXT(text){
       }
       continue;
     }
-    var m2 = line.match(/^\s*(\d{1,2})\s*[:.\-]\s*([0-9A-Za-zА-Яа-я\-])\s*$/);
+    var m2 = line.match(/^\s*(\d{1,2})\s*[:.\-]\s*(\d)\b/);
     if(m2){
       var idx2 = parseInt(m2[1], 10);
-      var sym = m2[2];
+      if(idx2 >= 0 && idx2 < 98) cur.prog[idx2] = parseInt(m2[2], 10);
+      continue;
+    }
+    var m3 = line.match(/^\s*(\d{1,2})\s*[:.\-]\s*([0-9A-Za-zА-Яа-я\-])\s*$/);
+    if(m3){
+      var idx3 = parseInt(m3[1], 10);
+      var sym = m3[2];
       var table = '0123456789-LCГE ';
       var pos = table.indexOf(sym);
       if(pos < 0) pos = table.indexOf(sym.toUpperCase());
-      if(idx2 >= 0 && idx2 < 98 && pos >= 0){
-        cur.prog[idx2] = pos;
+      if(idx3 >= 0 && idx3 < 98 && pos >= 0){
+        cur.prog[idx3] = pos;
       }
     }
   }
@@ -1319,7 +1394,8 @@ function runSpoken(text){
   ST.mode = 'AUT';
   ST.err = false;
 
-  ST.X = 0; ST.Y = 0; ST.Z = 0; ST.T = 0; ST.X1 = 0;
+  ST.X = 0; ST.Y = 0; ST.Z = 0; ST.T = 0;
+  ST.X1 = 0;
   ST.typing = false; ST.exp = false;
 
   pushValue(numbers[0]);
@@ -1363,35 +1439,74 @@ function startVoice(){
 }
 
 /* ---------- демо ---------- */
-function loadDemo(){
-  var demo = [0x60,0x41,0x01,0x42,0x62,0x61,0x12,0x42,0x5B,0x04,0x62,0x50];
+/* Загружает массив кодов, дополняя до 98 ячеек НОП. */
+function loadCodes(codes){
   if(ST.run) stopRun();
   for(var i = 0; i < 98; i++) ST.prog[i] = 0x54;
-  for(var j = 0; j < demo.length; j++) ST.prog[j] = demo[j];
+  for(var j = 0; j < codes.length; j++) ST.prog[j] = codes[j];
   ST.mode = 'AUT';
   ST.ip = 0;
+  ST.sub = [];
   ST.err = false;
   drawPad();
   render();
-  hint('Программа n! (адреса 00–11). Занеси n в R0: число → x→П → 0. Затем «▶ Пуск» или f → АВТ, В/О, С/П');
+}
+
+function loadDemo(){
+  /* n! - 13 шагов (переход L1 занимает три ячейки: 08, 09, 10) */
+  loadCodes([0x60,0x41,0x01,0x42,0x62,0x61,0x12,0x42,0x5B,0x00,0x04,0x62,0x50]);
+  hint('Программа n! (адреса 00–12). Занеси n в R0: число → x→П → 0. Затем «▶ Пуск»');
   say('программа загружена');
 }
 
 function loadDemo2(){
-  var demo = [0x61,0x62,0x11,0x22,0x63,0x64,0x11,0x22,0x10,0x21,0x50];
-  if(ST.run) stopRun();
-  for(var i = 0; i < 98; i++) ST.prog[i] = 0x54;
-  for(var j = 0; j < demo.length; j++) ST.prog[j] = demo[j];
-  ST.mode = 'AUT';
-  ST.ip = 0;
-  ST.err = false;
+  /* длина отрезка - 11 шагов, переходов нет */
+  loadCodes([0x61,0x62,0x11,0x22,0x63,0x64,0x11,0x22,0x10,0x21,0x50]);
   ST.R[1] = 8;   /* x2 */
   ST.R[2] = 1;   /* x1 */
   ST.R[3] = 4;   /* y2 */
   ST.R[4] = 2;   /* y1 */
-  drawPad();
   render();
-  hint('Длина отрезка (коды совместимы с Б3-34). Данные уже в регистрах: x1=1 в R2, y1=2 в R4, x2=8 в R1, y2=4 в R3. Жми «▶ Пуск» → 7.2801098');
+  hint('Длина отрезка. Данные уже в регистрах: x1=1 в R2, y1=2 в R4, x2=8 в R1, y2=4 в R3. Жми «▶ Пуск» → 7.2801098');
+  say('программа загружена');
+}
+
+function loadDemo3(){
+  /* НОД четырёх чисел (R1..R4), алгоритм Евклида вычитанием.
+     Главная 00-14, подпрограмма НОД с адреса 20. Всего 41 ячейка. */
+  loadCodes([
+    0x53,0x02,0x00,   /* 00: ПП 20 */
+    0x63,             /* 03: П→X 3 */
+    0x42,             /* 04: X→П 2 */
+    0x53,0x02,0x00,   /* 05: ПП 20 */
+    0x64,             /* 08: П→X 4 */
+    0x42,             /* 09: X→П 2 */
+    0x53,0x02,0x00,   /* 10: ПП 20 */
+    0x61,             /* 13: П→X 1 */
+    0x50,             /* 14: С/П */
+
+    0x54,0x54,0x54,0x54,0x54,  /* 15-19: К НОП */
+
+    0x61,             /* 20: П→X 1 */
+    0x62,             /* 21: П→X 2 */
+    0x11,             /* 22: − */
+    0x5E,0x04,0x00,   /* 23: F x=0 -> 40 */
+    0x5C,0x03,0x03,   /* 26: F x<0 -> 33 */
+    0x41,             /* 29: X→П 1 */
+    0x51,0x02,0x00,   /* 30: БП 20 */
+    0x62,             /* 33: П→X 2 */
+    0x61,             /* 34: П→X 1 */
+    0x11,             /* 35: − */
+    0x42,             /* 36: X→П 2 */
+    0x51,0x02,0x00,   /* 37: БП 20 */
+    0x52              /* 40: В/О */
+  ]);
+  ST.R[1] = 32;
+  ST.R[2] = 124;
+  ST.R[3] = 206;
+  ST.R[4] = 1086;
+  render();
+  hint('НОД четырёх чисел. Числа уже в R1–R4 (32, 124, 206, 1086). Включи быстрый темп и жми «▶ Пуск» → 2');
   say('программа загружена');
 }
 
@@ -1464,6 +1579,7 @@ bind('btnVoice', function(){
 bind('btnMic', startVoice);
 bind('btnDemo', loadDemo);
 bind('btnDemo2', loadDemo2);
+bind('btnDemo3', loadDemo3);
 bind('btnHelp', function(){
   var h = document.getElementById('help');
   h.style.display = h.style.display === 'block' ? 'none' : 'block';
@@ -1492,7 +1608,8 @@ if(fi) fi.addEventListener('change', function(){
   drawPad();
   render();
   if(had){
-    hint('Восстановлена последняя программа и регистры. Темп: ' + (ST.fast ? 'быстрый' : 'оригинал (~5 шагов/с)'));
+    hint('Восстановлена последняя программа и регистры. Темп: ' + (ST.fast ? 'быстрый' : 'оригинал (~5 шагов/с)') +
+         '. Переходы теперь занимают три шага, как у оригинала.');
   }
 })();
 

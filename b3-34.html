@@ -17,16 +17,21 @@ body{padding:10px;display:flex;justify-content:center}
 .lcd{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:25px;line-height:1.15;color:#7dff9b;text-shadow:0 0 9px rgba(125,255,155,.6);text-align:right;min-height:30px;letter-spacing:1px;overflow:hidden;white-space:nowrap}
 .lcd.small{font-size:19px;letter-spacing:0}
 .lcd.err{color:#ff8a7a;text-shadow:0 0 9px rgba(255,138,122,.6)}
-.lcdrow{display:flex;justify-content:space-between;font-size:10px;color:#5f8f6f;margin-top:5px;font-family:ui-monospace,monospace;gap:8px}
+.lcdrow{display:flex;justify-content:space-between;font-size:10px;color:#6fa37d;margin-top:5px;font-family:ui-monospace,monospace;gap:8px}
 .lcdrow span:last-child{text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.stack{display:flex;gap:5px;margin:8px 0 6px;font-family:ui-monospace,monospace;font-size:11px;color:#a8a496}
-.stack div{background:rgba(0,0,0,.2);border-radius:6px;padding:3px 4px;flex:1;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.stack b{color:#d8d3c2;font-weight:600}
-.regs{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin:0 0 9px}
-.regs button{background:rgba(0,0,0,.22);border:none;border-radius:6px;padding:4px 2px;color:#cfcabb;font-family:ui-monospace,monospace;text-align:center;overflow:hidden;transition:background .15s}
-.regs button b{display:block;color:#8d9384;font-size:9px;font-weight:600;letter-spacing:.5px}
-.regs button .v{display:block;font-size:11px;color:#e9e6db;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* стек: тёмные плашки, подпись сверху, значение яркое снизу */
+.stack{display:flex;gap:5px;margin:8px 0 6px;font-family:ui-monospace,monospace}
+.stack div{background:#20241c;border:1px solid #3a4232;border-radius:6px;padding:4px 3px 5px;flex:1;text-align:center;overflow:hidden;color:#8dffab;font-size:13px;font-weight:700;line-height:1.2;white-space:nowrap;text-overflow:ellipsis;text-shadow:0 0 7px rgba(141,255,171,.4)}
+.stack b{display:block;color:#7fa88a;font-weight:700;font-size:9px;letter-spacing:.6px;margin-bottom:2px;text-shadow:none}
+
+/* регистры: 5 в ряд, значения крупнее и ярче */
+.regs{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin:0 0 9px}
+.regs button{background:#20241c;border:1px solid #3a4232;border-radius:6px;padding:5px 3px 6px;color:#8dffab;font-family:ui-monospace,monospace;text-align:center;overflow:hidden;transition:background .15s}
+.regs button b{display:block;color:#7fa88a;font-size:9px;font-weight:700;letter-spacing:.5px;margin-bottom:2px}
+.regs button .v{display:block;font-size:13px;font-weight:700;color:#8dffab;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 0 7px rgba(141,255,171,.4)}
 .regs button.flash{background:#2c6b3f}
+
 .pad{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
 button.key{background:#8e8877;border:none;border-radius:8px;color:#1c1c17;font-size:13px;font-weight:600;padding:12px 0;box-shadow:0 2px 0 rgba(0,0,0,.35);font-family:inherit}
 button.key.dark{background:#4a4a44;color:#f0ede3}
@@ -111,6 +116,15 @@ button.key.on{outline:2px solid #ffd166;outline-offset:1px}
     <h3>Как считать</h3>
     <p>Обратная польская запись: <code>5 В↑ 3 +</code> даёт 8. Клавиша <code>В↑</code> разделяет числа, <code>↔</code> меняет X и Y, <code>F◯</code> прокручивает стек.</p>
 
+    <h3>Где смотреть стек и регистры</h3>
+    <p>Сразу под индикатором — пять тёмных плашек: <b>X</b>, <b>Y</b>, <b>Z</b>, <b>T</b> и <b>X1</b>. Подпись мелкая сверху, само значение — крупным ярко-зелёным, как на индикаторе.</p>
+    <p>Ниже — все 14 регистров <code>R0</code>–<code>R9</code>, <code>Ra</code>–<code>Rd</code> с их значениями.</p>
+    <ul>
+      <li><b>короткое нажатие</b> на регистр — вызвать его значение в X (как <code>П→X</code>);</li>
+      <li><b>долгое нажатие</b> (около половины секунды, плашка мигнёт зелёным) — записать X в регистр (как <code>X→П</code>).</li>
+    </ul>
+    <p>Если значение длинное, оно укорачивается многоточием — полное видно на индикаторе после вызова регистра в X.</p>
+
     <h3>Запуск программы — два способа</h3>
     <p><b>Способ 1, кнопкой:</b> зелёная <code>▶ Пуск программы</code>. Сама ставит автоматический режим, адрес 00 и запускает. Удобно, но помни: на настоящем Б3-34 такой кнопки не было — это наша добавка.</p>
     <p><b>Способ 2, как на настоящем:</b> <code>f</code> → <code>АВТ</code> → <code>В/О</code> → <code>С/П</code>. <code>АВТ</code> возвращает из режима программирования, <code>В/О</code> ставит адрес 00, <code>С/П</code> пускает.</p>
@@ -166,6 +180,6 @@ button.key.on{outline:2px solid #ffd166;outline-offset:1px}
     <p>Кнопка «Сказать» понимает фразы вроде «двадцать четыре умножить на шесть» и сразу выполняет их в RPN.</p>
   </div>
 </div>
-<script src="b3-34.js?v=2"></script>
+<script src="b3-34.js?v=3"></script>
 </body>
 </html>

@@ -19,6 +19,13 @@
     width: 300px; max-width: 100%; padding: 16px; border-radius: 20px;
     background: #2a2f3a; box-shadow: 0 12px 30px rgba(0,0,0,.45);
   }
+  .head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 10px;
+  }
+  .head .title { font-size: 14px; color: #c8d0dd; letter-spacing: .5px; }
+  #ver { font-size: 13px; color: #7fb3ff; font-weight: 600; }
+
   #display {
     width: 100%; box-sizing: border-box; padding: 16px 12px;
     margin-bottom: 12px; border: none; border-radius: 12px;
@@ -64,15 +71,17 @@
   }
   #install[hidden] { display: none; }
 
-  .footer {
-    display: flex; gap: 8px; align-items: center; margin-top: 8px;
-  }
-  .footer .tool { flex: 0 0 auto; padding: 8px 12px; font-size: 12px; opacity: 1; }
-  #ver { margin-left: auto; font-size: 11px; color: #6f7a8c; }
+  .footer { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+  .footer .tool { flex: 1; padding: 8px 12px; font-size: 13px; opacity: 1; }
 </style>
 </head>
 <body>
   <div class="calc">
+    <div class="head">
+      <span class="title">Калькулятор</span>
+      <span id="ver">версия 4</span>
+    </div>
+
     <input id="display" value="0" readonly>
     <div class="keys">
       <button class="clr" data-action="clear">C</button>
@@ -110,7 +119,6 @@
 
     <div class="footer">
       <button type="button" id="refresh" class="tool">🔄 Обновить</button>
-      <span id="ver">версия 4</span>
     </div>
   </div>
 

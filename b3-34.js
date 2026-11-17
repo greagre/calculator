@@ -3,7 +3,8 @@
 
 /* ============================================================
    Электроника Б3-34 — логика
-   v2: темп ~5 шагов/с, 8 значащих цифр + ЕГГОГ, панель регистров
+   v3: темп ~5 шагов/с, 8 значащих цифр + ЕГГОГ, панель регистров,
+       ИСПРАВЛЕНЫ условные переходы (были инвертированы)
    ============================================================ */
 
 var MAXDIG = 8;        /* значащих цифр мантиссы, как у оригинала */
@@ -569,10 +570,13 @@ function runStep(){
   if(code === 0x53){ ST.sub.push((ST.ip + 2) % 98); ST.ip = addr; return 'jump'; }
   if(code === 0x54){ ST.ip++; return 'cont'; }
 
-  if(code === 0x57){ if(ST.X !== 0){ ST.ip += 2; } else { ST.ip = addr; } return 'jump'; }
-  if(code === 0x59){ if(ST.X >= 0){ ST.ip += 2; } else { ST.ip = addr; } return 'jump'; }
-  if(code === 0x5C){ if(ST.X < 0){ ST.ip += 2; } else { ST.ip = addr; } return 'jump'; }
-  if(code === 0x5E){ if(ST.X === 0){ ST.ip += 2; } else { ST.ip = addr; } return 'jump'; }
+  /* Условные переходы: при ВЫПОЛНЕННОМ условии идём по адресу,
+     при невыполненном — на следующую за адресом команду.
+     (в v2 было наоборот — исправлено) */
+  if(code === 0x57){ if(ST.X !== 0){ ST.ip = addr; } else { ST.ip += 2; } return 'jump'; }
+  if(code === 0x59){ if(ST.X >= 0){ ST.ip = addr; } else { ST.ip += 2; } return 'jump'; }
+  if(code === 0x5C){ if(ST.X < 0){ ST.ip = addr; } else { ST.ip += 2; } return 'jump'; }
+  if(code === 0x5E){ if(ST.X === 0){ ST.ip = addr; } else { ST.ip += 2; } return 'jump'; }
 
   if(code === 0x5D || code === 0x5B || code === 0x58 || code === 0x5A){
     var r = code === 0x5D ? 0 : (code === 0x5B ? 1 : (code === 0x58 ? 2 : 3));
@@ -586,10 +590,11 @@ function runStep(){
   if(hi === 0xB){ ST.R[modAddr(ST.R[lo], lo) % 14] = norm(ST.X); ST.ip++; return 'cont'; }
   if(hi === 0xD){ pushValue(ST.R[modAddr(ST.R[lo], lo) % 14]); ST.ip++; return 'cont'; }
 
-  if(hi === 7){ if(ST.X !== 0){ ST.ip++; } else { ST.ip = modAddr(ST.R[lo], lo); } return 'jump'; }
-  if(hi === 9){ if(ST.X >= 0){ ST.ip++; } else { ST.ip = modAddr(ST.R[lo], lo); } return 'jump'; }
-  if(hi === 0xC){ if(ST.X < 0){ ST.ip++; } else { ST.ip = modAddr(ST.R[lo], lo); } return 'jump'; }
-  if(hi === 0xE){ if(ST.X === 0){ ST.ip++; } else { ST.ip = modAddr(ST.R[lo], lo); } return 'jump'; }
+  /* Косвенные условные переходы — та же логика: условие истинно -> переход */
+  if(hi === 7){ if(ST.X !== 0){ ST.ip = modAddr(ST.R[lo], lo); } else { ST.ip++; } return 'jump'; }
+  if(hi === 9){ if(ST.X >= 0){ ST.ip = modAddr(ST.R[lo], lo); } else { ST.ip++; } return 'jump'; }
+  if(hi === 0xC){ if(ST.X < 0){ ST.ip = modAddr(ST.R[lo], lo); } else { ST.ip++; } return 'jump'; }
+  if(hi === 0xE){ if(ST.X === 0){ ST.ip = modAddr(ST.R[lo], lo); } else { ST.ip++; } return 'jump'; }
 
   if(code >= 0x26 && code <= 0x2A){ setErr(); ST.run = false; return 'stop'; }
   if(code >= 0x30 && code <= 0x3B){ setErr(); ST.run = false; return 'stop'; }

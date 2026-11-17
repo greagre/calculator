@@ -14,6 +14,11 @@
    Кнопки П→X и X→П работают в обоих режимах: в АВТ — выполняют
    операцию с выбранным регистром, в ПРГ — вставляют в программу
    команду с кодом 0x60+регистр или 0x40+регистр.
+
+   ЕГГОГ: индикатор загорается только на настоящей ошибке
+   вычисления и гаснет при Cx, при стирании программы и при
+   пустом С/П. Рядом всегда написано словами, что именно
+   случилось.
    ============================================================ */
 (function(global){
 "use strict";
@@ -31,6 +36,7 @@ var S = {
   regAct: null,
   regProg: null,
   msg: '',
+  errWhy: '',
   m: null
 };
 
@@ -42,6 +48,23 @@ function blankCells(){
 S.m = new Core.Machine(blankCells(), {});
 
 function $(id){ return document.getElementById(id); }
+
+/* ---------------- причина ЕГГОГ по коду команды ---------------- */
+function whyCode(code){
+  if(code === 0x13 || code === 0x23) return 'деление на ноль';
+  if(code === 0x21) return 'корень из отрицательного числа';
+  if(code === 0x17 || code === 0x18) return 'логарифм нуля или отрицательного числа';
+  if(code === 0x19 || code === 0x1A) return 'arcsin или arccos вне −1…1';
+  if(code === 0x15 || code === 0x16 || code === 0x24) return 'слишком большое число';
+  if(code === 0x10 || code === 0x11 || code === 0x12) return 'слишком большое число';
+  if(Core.isJump(code)) return 'переход без адреса';
+  return 'результат вне допустимого диапазона';
+}
+
+function clearErr(){
+  if(S.m) S.m.err = false;
+  S.errWhy = '';
+}
 
 /* ---------------- описание клавиатуры ---------------- */
 var KEYS = [
@@ -212,9 +235,12 @@ function exec(code){
   var m = S.m;
 
   if(code === 0x50){ runProg(); return; }
-  if(code === 0x0D){ m.X = 0; m.typing = false; m.input = ''; m.err = false; return; }
+  if(code === 0x0D){ m.X = 0; m.typing = false; m.input = ''; clearErr(); return; }
 
-  if(m.err && code !== 0x0D){ S.msg = 'был ЕГГОГ — сначала Cx'; return; }
+  if(m.err){
+    S.msg = 'ЕГГОГ: ' + (S.errWhy || 'результат вне допустимого диапазона') + ' — нажми Cx';
+    return;
+  }
 
   switch(code){
     case 0x0B: m.X = -m.X; if(m.typing) m.input = String(m.X); break;
@@ -248,6 +274,11 @@ function exec(code){
 
     default:
       S.msg = 'в режиме АВТ эта команда не работает — переключись в ПРГ';
+  }
+
+  if(m.err){
+    S.errWhy = whyCode(code);
+    S.msg = 'ЕГГОГ: ' + S.errWhy + ' — нажми Cx';
   }
 }
 
@@ -298,7 +329,12 @@ function addCode(code){
 
 /* ---------------- запуск программы ---------------- */
 function runProg(){
-  if(!S.prog.length){ S.msg = 'программа пустая — набери её в режиме ПРГ или возьми пример'; return; }
+  if(!S.prog.length){
+    clearErr();
+    S.msg = 'программы нет — набери её в режиме ПРГ или возьми пример. ' +
+            'Индикатор сброшен, считать нечего';
+    return;
+  }
 
   var built = Core.compile(S.prog);
   if(built.errors.length){ S.msg = 'не собрать: ' + built.errors[0]; return; }
@@ -310,9 +346,16 @@ function runProg(){
   var res = mach.run(400000);
 
   S.m = mach;
-  if(res.err) S.msg = 'ЕГГОГ на шаге ' + mach.ip;
-  else if(res.infinite) S.msg = 'программа не остановилась за ' + res.steps + ' шагов';
-  else S.msg = 'выполнено, шагов: ' + res.steps;
+  if(res.err){
+    S.errWhy = whyCode(mach.cells[mach.ip % Core.CELLS]);
+    S.msg = 'ЕГГОГ на шаге ' + mach.ip + ': ' + S.errWhy + ' — нажми Cx';
+  }else if(res.infinite){
+    clearErr();
+    S.msg = 'программа не остановилась за ' + res.steps + ' шагов';
+  }else{
+    clearErr();
+    S.msg = 'выполнено, шагов: ' + res.steps;
+  }
 }
 
 /* ---------------- отрисовка ---------------- */
@@ -328,6 +371,8 @@ function render(){
       if(S.regProg != null) p.push((S.regProg === 0x60 ? 'П→X' : 'X→П') + ': регистр?');
       else if(S.waitAddr) p.push('жду адрес: ' + (S.addr || '—'));
       else if(S.buf) p.push('код: ' + S.buf);
+    }else if(S.m.err){
+      p.push('ЕГГОГ — нажми Cx');
     }
     if(S.regAct) p.push(S.regAct === 'read' ? 'П→X: регистр?' : 'X→П: регистр?');
     st.textContent = p.join(' · ');
@@ -455,6 +500,7 @@ function loadProg(p){
   S.waitAddr = 0;
   S.regAct = null;
   S.regProg = null;
+  S.errWhy = '';
   S.msg = 'загружено: ' + p.title + '. Нажми С/П';
   setTab('calc');
 }
@@ -554,7 +600,8 @@ function init(){
   var cBtn = $('btnClear');
   if(cBtn) cBtn.addEventListener('click', function(){
     S.prog = []; S.buf = ''; S.addr = ''; S.waitAddr = 0; S.regProg = null;
-    S.msg = 'программа стёрта';
+    clearErr();
+    S.msg = 'программа стёрта, индикатор сброшен';
     render();
   });
 

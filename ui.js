@@ -15,6 +15,14 @@
    операцию с выбранным регистром, в ПРГ — вставляют в программу
    команду с кодом 0x60+регистр или 0x40+регистр.
 
+   ОТЛОЖЕННЫЕ ОПЕРАЦИИ (режим АВТ):
+   как на настоящем Б3-34, нажатие + − × ÷ НЕ считает сразу.
+   Сначала набранное число поднимается в Y, X очищается, а сама
+   операция запоминается в S.pend. Она выполнится, когда нажмёшь
+   следующую операцию (или С/П — он работает как «равно»).
+   Поэтому 5 ÷ 2 ÷ даёт 2.5, а не 0. В программе операции,
+   наоборот, выполняются немедленно — так и должно быть.
+
    ЕГГОГ: индикатор загорается только на настоящей ошибке
    вычисления и гаснет при Cx, при стирании программы и при
    пустом С/П. Рядом всегда написано словами, что именно
@@ -37,6 +45,8 @@ var S = {
   regProg: null,
   msg: '',
   errWhy: '',
+  pend: null,     /* код отложенной операции (+ − × ÷ x^y) */
+  fresh: false,   /* только что нажали операцию: X пуст, ввод пойдёт без подъёма */
   m: null
 };
 
@@ -49,7 +59,7 @@ S.m = new Core.Machine(blankCells(), {});
 
 function $(id){ return document.getElementById(id); }
 
-/* ---------------- причина ЕГГОГ по коду команды ---------------- */
+/* ---------------- причины ЕГГОГ по коду команды ---------------- */
 function whyCode(code){
   if(code === 0x13 || code === 0x23) return 'деление на ноль';
   if(code === 0x21) return 'корень из отрицательного числа';
@@ -164,14 +174,14 @@ function press(act, val){
   if(act === 'digit' || act === 'regkey'){
     if(S.regAct){ doReg(val); render(); return; }
     if(S.mode === 'PRG'){ typeCode(val); render(); return; }
-    S.m.typeDigit(Number(val));
+    autDigit(val);
     render();
     return;
   }
 
   if(act === 'dot'){
     if(S.mode === 'PRG'){ S.msg = 'в ПРГ набираются коды команд, а не числа'; render(); return; }
-    typeDot();
+    autDot();
     render();
     return;
   }
@@ -202,6 +212,97 @@ function press(act, val){
   }
 }
 
+/* ---------------- режим АВТ: отложенные операции ---------------- */
+var OPFN = {
+  0x10: function(a, b){ return a + b; },
+  0x11: function(a, b){ return a - b; },
+  0x12: function(a, b){ return a * b; },
+  0x13: function(a, b){ return a / b; },
+  0x24: function(a, b){ return Math.pow(a, b); }
+};
+
+/* цифра: если только что нажали операцию, набор начинается в пустом X */
+function autDigit(val){
+  var m = S.m;
+  if(S.fresh){
+    m.X = 0;
+    m.typing = true;
+    m.input = '';
+    S.fresh = false;
+  }
+  m.typeDigit(Number(val));
+  S.msg = '';
+}
+
+function autDot(){
+  var m = S.m;
+  if(S.fresh){
+    m.X = 0;
+    m.typing = true;
+    m.input = '';
+    S.fresh = false;
+  }
+  typeDot();
+  S.msg = '';
+}
+
+function autOp(code){
+  var m = S.m;
+
+  /* есть отложенная операция и второй операнд уже набран — считаем её */
+  if(S.pend !== null && !S.fresh){
+    var done = S.pend;
+    m.binary(OPFN[done]);
+    if(m.err){
+      S.errWhy = whyCode(done);
+      S.pend = null;
+      S.fresh = false;
+      S.msg = 'ЕГГОГ: ' + S.errWhy + ' — нажми Cx';
+      return;
+    }
+    S.pend = code;
+    S.fresh = false;
+    S.msg = 'получилось ' + Core.fmt(m.X) + ' · ждёт ' + Core.cmdName(code);
+    return;
+  }
+
+  /* операция нажата повторно, второй операнд ещё не введён */
+  if(S.pend !== null && S.fresh){
+    S.pend = code;
+    S.msg = 'операция ' + Core.cmdName(code) + ': сначала введи второй операнд';
+    return;
+  }
+
+  /* первая операция в цепочке: набранное число уходит в Y, X очищается */
+  if(m.typing){ m.typing = false; m.input = ''; }
+  m.shiftUp();
+  m.X = 0;
+  m.typing = false;
+  m.input = '';
+  S.pend = code;
+  S.fresh = true;
+  S.msg = Core.cmdName(code) + ': введи второй операнд · Y = ' + Core.fmt(m.Y);
+}
+
+/* завершить отложенную операцию (С/П работает как «равно») */
+function finishAut(){
+  var m = S.m;
+  if(S.pend === null) return false;
+  if(S.fresh){ S.pend = null; return false; }
+
+  var code = S.pend;
+  m.binary(OPFN[code]);
+  S.pend = null;
+  S.fresh = false;
+  if(m.err){
+    S.errWhy = whyCode(code);
+    S.msg = 'ЕГГОГ: ' + S.errWhy + ' — нажми Cx';
+    return true;
+  }
+  S.msg = 'результат: ' + Core.fmt(m.X);
+  return true;
+}
+
 function typeDot(){
   var m = S.m;
   if(!m.typing){ m.shiftUp(); m.input = ''; m.typing = true; }
@@ -217,6 +318,8 @@ function doReg(val){
   else S.m.R[r] = Core.norm(S.m.X);
   S.msg = (S.regAct === 'read' ? 'П→X ' : 'X→П ') + 'R' + r;
   S.regAct = null;
+  S.fresh = false;
+  if(S.regAct === 'read') S.pend = null;
 }
 
 /* вставка команды обращения к регистру в программу (ПРГ) */
@@ -235,7 +338,13 @@ function exec(code){
   var m = S.m;
 
   if(code === 0x50){ runProg(); return; }
-  if(code === 0x0D){ m.X = 0; m.typing = false; m.input = ''; clearErr(); return; }
+  if(code === 0x0D){
+    m.X = 0; m.typing = false; m.input = '';
+    S.pend = null; S.fresh = false;
+    clearErr();
+    S.msg = 'X очищен';
+    return;
+  }
 
   if(m.err){
     S.msg = 'ЕГГОГ: ' + (S.errWhy || 'результат вне допустимого диапазона') + ' — нажми Cx';
@@ -246,31 +355,29 @@ function exec(code){
     case 0x0B: m.X = -m.X; if(m.typing) m.input = String(m.X); break;
     case 0x0C: if(m.typing && m.input.indexOf('e') < 0) m.input += 'e';
                m.X = parseFloat(m.input) || 0; break;
-    case 0x0E: m.shiftUp(); m.typing = false; m.input = ''; break;
-    case 0x0F: var t = m.X1; m.X1 = m.X; m.X = t; break;
+    case 0x0E: m.shiftUp(); m.typing = false; m.input = ''; S.fresh = false; break;
+    case 0x0F: var t = m.X1; m.X1 = m.X; m.X = t; S.fresh = false; break;
 
-    case 0x10: m.binary(function(a, b){ return a + b; }); break;
-    case 0x11: m.binary(function(a, b){ return a - b; }); break;
-    case 0x12: m.binary(function(a, b){ return a * b; }); break;
-    case 0x13: m.binary(function(a, b){ return a / b; }); break;
-    case 0x14: var s = m.X; m.X = m.Y; m.Y = s; break;
+    case 0x10: case 0x11: case 0x12: case 0x13: case 0x24:
+      autOp(code); return;
 
-    case 0x15: m.unary(function(v){ return Math.pow(10, v); }); break;
-    case 0x16: m.unary(function(v){ return Math.exp(v); }); break;
-    case 0x17: m.unary(function(v){ return Math.log(v) / Math.LN10; }); break;
-    case 0x18: m.unary(function(v){ return Math.log(v); }); break;
-    case 0x19: m.unary(function(v){ return Math.asin(v) * 180 / Math.PI; }); break;
-    case 0x1A: m.unary(function(v){ return Math.acos(v) * 180 / Math.PI; }); break;
-    case 0x1B: m.unary(function(v){ return Math.atan(v) * 180 / Math.PI; }); break;
-    case 0x1C: m.unary(function(v){ return Math.sin(v * Math.PI / 180); }); break;
-    case 0x1D: m.unary(function(v){ return Math.cos(v * Math.PI / 180); }); break;
-    case 0x1E: m.unary(function(v){ return Math.tan(v * Math.PI / 180); }); break;
+    case 0x14: var s = m.X; m.X = m.Y; m.Y = s; S.fresh = false; break;
 
-    case 0x20: m.push(Math.PI); break;
-    case 0x21: m.unary(function(v){ return Math.sqrt(v); }); break;
-    case 0x22: m.unary(function(v){ return v * v; }); break;
-    case 0x23: m.unary(function(v){ return 1 / v; }); break;
-    case 0x24: m.binary(function(a, b){ return Math.pow(a, b); }); break;
+    case 0x15: m.unary(function(v){ return Math.pow(10, v); }); S.fresh = false; break;
+    case 0x16: m.unary(function(v){ return Math.exp(v); }); S.fresh = false; break;
+    case 0x17: m.unary(function(v){ return Math.log(v) / Math.LN10; }); S.fresh = false; break;
+    case 0x18: m.unary(function(v){ return Math.log(v); }); S.fresh = false; break;
+    case 0x19: m.unary(function(v){ return Math.asin(v) * 180 / Math.PI; }); S.fresh = false; break;
+    case 0x1A: m.unary(function(v){ return Math.acos(v) * 180 / Math.PI; }); S.fresh = false; break;
+    case 0x1B: m.unary(function(v){ return Math.atan(v) * 180 / Math.PI; }); S.fresh = false; break;
+    case 0x1C: m.unary(function(v){ return Math.sin(v * Math.PI / 180); }); S.fresh = false; break;
+    case 0x1D: m.unary(function(v){ return Math.cos(v * Math.PI / 180); }); S.fresh = false; break;
+    case 0x1E: m.unary(function(v){ return Math.tan(v * Math.PI / 180); }); S.fresh = false; break;
+
+    case 0x20: m.push(Math.PI); S.fresh = false; break;
+    case 0x21: m.unary(function(v){ return Math.sqrt(v); }); S.fresh = false; break;
+    case 0x22: m.unary(function(v){ return v * v; }); S.fresh = false; break;
+    case 0x23: m.unary(function(v){ return 1 / v; }); S.fresh = false; break;
 
     default:
       S.msg = 'в режиме АВТ эта команда не работает — переключись в ПРГ';
@@ -329,10 +436,16 @@ function addCode(code){
 
 /* ---------------- запуск программы ---------------- */
 function runProg(){
+  var calc = finishAut();
+
   if(!S.prog.length){
+    if(S.m.err){
+      S.msg = 'ЕГГОГ: ' + (S.errWhy || 'результат вне допустимого диапазона') + ' — нажми Cx';
+      return;
+    }
     clearErr();
-    S.msg = 'программы нет — набери её в режиме ПРГ или возьми пример. ' +
-            'Индикатор сброшен, считать нечего';
+    S.msg = (calc ? 'результат: ' + Core.fmt(S.m.X) + '. ' : '') +
+            'программы нет — набери её в режиме ПРГ или возьми пример';
     return;
   }
 
@@ -346,6 +459,8 @@ function runProg(){
   var res = mach.run(400000);
 
   S.m = mach;
+  S.pend = null;
+  S.fresh = false;
   if(res.err){
     S.errWhy = whyCode(mach.cells[mach.ip % Core.CELLS]);
     S.msg = 'ЕГГОГ на шаге ' + mach.ip + ': ' + S.errWhy + ' — нажми Cx';
@@ -354,7 +469,8 @@ function runProg(){
     S.msg = 'программа не остановилась за ' + res.steps + ' шагов';
   }else{
     clearErr();
-    S.msg = 'выполнено, шагов: ' + res.steps;
+    S.msg = (calc ? 'результат: ' + Core.fmt(S.m.X) + '. ' : '') +
+            'выполнено, шагов: ' + res.steps;
   }
 }
 
@@ -373,6 +489,8 @@ function render(){
       else if(S.buf) p.push('код: ' + S.buf);
     }else if(S.m.err){
       p.push('ЕГГОГ — нажми Cx');
+    }else if(S.pend !== null){
+      p.push('Y = ' + Core.fmt(S.m.Y) + ' · ждёт: ' + Core.cmdName(S.pend));
     }
     if(S.regAct) p.push(S.regAct === 'read' ? 'П→X: регистр?' : 'X→П: регистр?');
     st.textContent = p.join(' · ');
@@ -501,6 +619,8 @@ function loadProg(p){
   S.regAct = null;
   S.regProg = null;
   S.errWhy = '';
+  S.pend = null;
+  S.fresh = false;
   S.msg = 'загружено: ' + p.title + '. Нажми С/П';
   setTab('calc');
 }
@@ -593,6 +713,7 @@ function init(){
   if(mBtn) mBtn.addEventListener('click', function(){
     S.mode = (S.mode === 'PRG') ? 'AUT' : 'PRG';
     S.buf = ''; S.addr = ''; S.waitAddr = 0; S.regAct = null; S.regProg = null;
+    S.pend = null; S.fresh = false;
     S.msg = S.mode === 'PRG' ? 'режим ПРГ: коды набираются двумя цифрами' : 'режим АВТ';
     render();
   });
@@ -600,6 +721,7 @@ function init(){
   var cBtn = $('btnClear');
   if(cBtn) cBtn.addEventListener('click', function(){
     S.prog = []; S.buf = ''; S.addr = ''; S.waitAddr = 0; S.regProg = null;
+    S.pend = null; S.fresh = false;
     clearErr();
     S.msg = 'программа стёрта, индикатор сброшен';
     render();

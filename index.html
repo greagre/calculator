@@ -2,16 +2,21 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Калькулятор</title>
+<meta name="theme-color" content="#2f6fff">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="https://placehold.co/192x192/2f6fff/ffffff/png?text=%3D">
 <style>
   body {
     margin: 0; min-height: 100vh; display: flex;
     align-items: center; justify-content: center;
     background: #1c1f26; font-family: system-ui, sans-serif;
+    padding: 16px; box-sizing: border-box;
   }
   .calc {
-    width: 300px; padding: 16px; border-radius: 20px;
+    width: 300px; max-width: 100%; padding: 16px; border-radius: 20px;
     background: #2a2f3a; box-shadow: 0 12px 30px rgba(0,0,0,.45);
   }
   #display {
@@ -34,6 +39,11 @@
   .eq:hover { background: #2ec07f; }
   .clr { background: #d94747; }
   .clr:hover { background: #ee5c5c; }
+  #install {
+    display: block; width: 100%; margin-top: 10px;
+    background: #22a06b; font-size: 16px;
+  }
+  #install[hidden] { display: none; }
 </style>
 </head>
 <body>
@@ -62,6 +72,7 @@
 
       <button data-digit="0">0</button>
     </div>
+    <button id="install" hidden>Установить приложение</button>
   </div>
 
 <script>
@@ -123,6 +134,33 @@
       else if (action === 'clear') clearAll();
     });
   });
+
+  // Регистрация service worker — нужна для установки как приложения
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    });
+  }
+
+  // Кнопка «Установить приложение»
+  const installBtn = document.getElementById('install');
+  let deferredPrompt = null;
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    installBtn.hidden = false;
+  });
+
+  installBtn.addEventListener('click', async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    installBtn.hidden = true;
+  });
+
+  window.addEventListener('appinstalled', () => { installBtn.hidden = true; });
 </script>
 </body>
 </html>

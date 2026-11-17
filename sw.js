@@ -1,8 +1,15 @@
 // Service worker: кэширует приложение, чтобы работало и без интернета.
 // Версия кэша поднимается при каждом обновлении кода — тогда старая копия
 // гарантированно выбрасывается и подтягивается новая.
-const CACHE = 'calculator-v4';
-const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon.svg'];
+const CACHE = 'calculator-v5';
+const ASSETS = [
+  './',
+  './index.html',
+  './manifest.webmanifest',
+  './icon.svg',
+  './b3-34.html',
+  './b3-34.js'
+];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

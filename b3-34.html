@@ -70,10 +70,54 @@ button.key.on{outline:2px solid #ffd166;outline-offset:1px}
 .help code{background:#2a2d24;padding:1px 4px;border-radius:4px;font-size:12px}
 .help ul{margin:4px 0 4px 18px;padding:0}
 .help li{margin:2px 0}
+
+/* ---------- вкладки ---------- */
+.tabs{display:flex;gap:6px;margin-bottom:10px}
+.tabs button{flex:1;background:#2b2d26;border:1px solid #45473c;color:#ddd8c9;border-radius:10px;padding:10px;font-size:13px;font-family:inherit}
+.tabs button.on{background:#2c6b3f;border-color:#4d9a64;color:#eafff0;font-weight:700}
+
+/* ---------- справочник ---------- */
+#tabCatalog{background:#191c15;border:1px solid #33372c;border-radius:14px;padding:12px}
+.catsearch{width:100%;background:#20241c;border:1px solid #3a4232;border-radius:10px;color:#e9e6db;padding:10px 12px;font-size:13px;font-family:inherit;margin-bottom:10px}
+.catsearch::placeholder{color:#75806f}
+.catbar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.catbar button{background:#2b2d26;border:1px solid #45473c;color:#ddd8c9;border-radius:999px;padding:7px 14px;font-size:12px;font-family:inherit}
+.catbar button.on{background:#2f5d8a;border-color:#3f6f9e;color:#fff;font-weight:700}
+.catintro{font-size:11px;color:#8f9a8a;line-height:1.45;margin-bottom:10px}
+.catempty{font-size:12px;color:#75806f;padding:10px 2px}
+.card{background:#1e2119;border:1px solid #383b30;border-radius:12px;margin-bottom:8px;overflow:hidden}
+.card.open{border-color:#4d9a64;box-shadow:0 0 0 1px rgba(77,154,100,.35)}
+.cardhead{width:100%;display:flex;align-items:center;gap:10px;background:none;border:none;color:#e9e6db;padding:12px;font-family:inherit;text-align:left}
+.cardhead .ico{font-size:18px;line-height:1}
+.cardhead .ttl{flex:1;font-size:14px;font-weight:700;line-height:1.25}
+.cardhead .ttl .sub{display:block;font-weight:400;font-size:11px;color:#8f9a8a;margin-top:3px}
+.cardhead .chev{color:#8f9a8a;font-size:15px}
+.cardbody{padding:0 12px 12px;font-size:13px;color:#cfcbbc;line-height:1.5}
+.cardbody .desc{margin-bottom:6px}
+.cardbody .formula{background:#262a22;border-radius:8px;padding:8px 10px;margin:8px 0;font-family:ui-monospace,monospace;color:#a9e8b8;font-size:12px;overflow-x:auto;white-space:nowrap}
+.cardbody .row{font-size:12px;color:#9aa794;margin:3px 0}
+.cardbody table.lst{width:100%;border-collapse:collapse;font-family:ui-monospace,monospace;font-size:11px;margin:10px 0}
+.cardbody table.lst th{color:#7fa88a;font-weight:700;text-align:left;padding:4px;border-bottom:1px solid #3a4232}
+.cardbody table.lst td{padding:3px 4px;color:#dbe9db;border-bottom:1px solid #262a22}
+.cardbody table.lst td.a{color:#8f9a8a}
+.cardbody table.lst td.addr{color:#ffcf5a}
+.checkline{font-size:12px;color:#8fd6a2;margin:8px 0 4px;font-weight:700}
+.acts{display:flex;flex-direction:column;gap:6px;margin-top:12px}
+.acts button{border:none;border-radius:9px;padding:12px;font-size:13px;font-family:inherit}
+.acts .load{background:#2c6b3f;color:#eafff0;font-weight:700}
+.acts .copy{background:#2b2d26;color:#ddd8c9;border:1px solid #45473c}
 </style>
 </head>
 <body>
 <div class="wrap">
+
+  <div class="tabs">
+    <button data-tab="calc" class="on">🧮 Калькулятор</button>
+    <button data-tab="catalog">📚 Программы</button>
+  </div>
+
+  <div id="tabCalc">
+
   <div class="case">
     <div class="brand"><span>ЭЛЕКТРОНИКА</span><b>Б3-34</b></div>
     <div class="lcdbox">
@@ -157,6 +201,9 @@ button.key.on{outline:2px solid #ffd166;outline-offset:1px}
     </ul>
     <p>Регистры, как и у оригинала, хранят 8 значащих цифр.</p>
 
+    <h3>Справочник программ</h3>
+    <p>Вторая вкладка сверху — <code>📚 Программы</code>. Там готовые программы по темам: нажми на название, раскроется листинг в кодах с расшифровкой каждой строки, кнопка <code>▶ Загрузить в калькулятор</code> кладёт программу в память (и нужные числа в регистры), <code>📋 Скопировать коды</code> — текстом в буфер.</p>
+
     <h3>Пример из литературы: длина отрезка</h3>
     <p>Программа из открытого примера для МК-61 (система команд и коды полностью совместимы с Б3-34):</p>
     <p><code>00 61</code> П→X 1 · <code>01 62</code> П→X 2 · <code>02 11</code> − · <code>03 22</code> x² · <code>04 63</code> П→X 3 · <code>05 64</code> П→X 4 · <code>06 11</code> − · <code>07 22</code> x² · <code>08 10</code> + · <code>09 21</code> √ · <code>10 50</code> С/П</p>
@@ -193,7 +240,73 @@ button.key.on{outline:2px solid #ffd166;outline-offset:1px}
     <h3>Голос</h3>
     <p>Кнопка «Сказать» понимает фразы вроде «двадцать четыре умножить на шесть» и сразу выполняет их в RPN.</p>
   </div>
+
+  </div><!-- /tabCalc -->
+
+  <div id="tabCatalog" style="display:none">
+    <input type="search" id="catSearch" class="catsearch" placeholder="Поиск по названию или коду команды: 61, √, НОД…">
+    <div class="catbar" id="catBar"></div>
+    <div class="catlist" id="catList"></div>
+  </div>
+
 </div>
-<script src="b3-34.js?v=4"></script>
+
+<script>
+/* Однократная проверка формата записей: в старой версии переход занимал
+   две ячейки, в новой — три (команда + десятки + единицы). Если в сохранении
+   после команды перехода стоят не цифры, состояние считается старым и
+   очищается, чтобы калькулятор не выдавал ЕГГОГ на «правильной» программе. */
+(function(){
+  try{
+    if(localStorage.getItem('b334.fmt') === '4') return;
+    var KEY = 'b334.state.v3';
+    var raw = localStorage.getItem(KEY);
+    var bad = false;
+    if(raw){
+      var o = JSON.parse(raw);
+      var p = (o && Array.isArray(o.prog)) ? o.prog : null;
+      if(p){
+        var J = {};
+        [0x51,0x53,0x57,0x59,0x5C,0x5E,0x5D,0x5B,0x58,0x5A].forEach(function(c){ J[c] = 1; });
+        for(var i = 0; i < p.length; i++){
+          if(J[p[i]]){
+            var a = p[i+1], b = p[i+2];
+            if(!(typeof a === 'number' && a >= 0 && a <= 9 && typeof b === 'number' && b >= 0 && b <= 9)){
+              bad = true;
+              break;
+            }
+            i += 2;
+          }
+        }
+      }
+    }
+    if(bad) localStorage.removeItem(KEY);
+    localStorage.setItem('b334.fmt', '4');
+  }catch(e){}
+})();
+</script>
+
+<script src="b3-34.js?v=5"></script>
+<script src="catalog.js?v=1"></script>
+<script>
+(function(){
+  var btns = document.querySelectorAll('.tabs button');
+  function show(id){
+    var tc = document.getElementById('tabCalc');
+    var tk = document.getElementById('tabCatalog');
+    if(tc) tc.style.display = (id === 'catalog') ? 'none' : '';
+    if(tk) tk.style.display = (id === 'catalog') ? '' : 'none';
+    for(var i = 0; i < btns.length; i++){
+      btns[i].className = (btns[i].getAttribute('data-tab') === id) ? 'on' : '';
+    }
+  }
+  for(var i = 0; i < btns.length; i++){
+    btns[i].addEventListener('click', function(){
+      show(this.getAttribute('data-tab'));
+      window.scrollTo(0, 0);
+    });
+  }
+})();
+</script>
 </body>
 </html>

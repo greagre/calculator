@@ -4,6 +4,8 @@
    Программа загружается в калькулятор записью состояния
    в localStorage (тот же ключ, что использует b3-34.js)
    и перезагрузкой страницы.
+   Наружу отдаёт window.B334Cat — этим пользуется кнопка
+   «📥 Пример…» на вкладке калькулятора.
    ============================================================ */
 (function(){
 "use strict";
@@ -61,7 +63,6 @@ var PROGS = [
   {
     id:'fact', cat:'num', icon:'📥',
     title:'n! — факториал',
-    steps:13,
     desc:'Считает факториал: 1·2·3·…·n.',
     formula:'n! = 1 · 2 · … · n',
     input:[['R0','n — целое число ≥ 1']],
@@ -74,7 +75,6 @@ var PROGS = [
   {
     id:'sum', cat:'num', icon:'➕',
     title:'Сумма 1…N',
-    steps:8,
     desc:'Сумма всех целых от 1 до N по формуле N(N+1)/2.',
     formula:'S = N · (N + 1) / 2',
     input:[['R0','N — целое число ≥ 1']],
@@ -87,7 +87,6 @@ var PROGS = [
   {
     id:'gcd', cat:'num', icon:'🔢',
     title:'НОД четырёх чисел',
-    steps:41,
     desc:'Наибольший общий делитель чисел из R1–R4. Алгоритм Евклида вычитанием — функции остатка у Б3-34 нет.',
     formula:'НОД(a, b) = a при a = b, иначе вычитаем меньшее из большего',
     input:[['R1','a'], ['R2','b'], ['R3','c'], ['R4','d']],
@@ -126,7 +125,6 @@ var PROGS = [
   {
     id:'seg', cat:'geo', icon:'📐',
     title:'Длина отрезка',
-    steps:11,
     desc:'Расстояние между двумя точками на плоскости.',
     formula:'d = √((x₂−x₁)² + (y₂−y₁)²)',
     input:[['R1','x₂'], ['R2','x₁'], ['R3','y₂'], ['R4','y₁']],
@@ -139,7 +137,6 @@ var PROGS = [
   {
     id:'geron', cat:'geo', icon:'🔺',
     title:'Формула Герона',
-    steps:22,
     desc:'Площадь треугольника по трём сторонам.',
     formula:'S = √(p(p−a)(p−b)(p−c)),  p = (a+b+c)/2',
     input:[['R1','a'], ['R2','b'], ['R3','c']],
@@ -152,14 +149,13 @@ var PROGS = [
   {
     id:'circle', cat:'geo', icon:'⭕',
     title:'Площадь круга',
-    steps:4,
     desc:'Площадь круга по радиусу: πr².',
     formula:'S = π · r²',
     input:[['R1','r — радиус']],
     output:'X — площадь',
     check:'r = 2 → 12.566371',
     data:{ 1:2 },
-    note:'Самая короткая программа справочника: четыре шага.',
+    note:'Самая короткая программа справочника: пять шагов.',
     codes:[0x61,0x22,0x20,0x12,0x50]
   }
 ];
@@ -243,8 +239,8 @@ function drawList(){
   var items = PROGS.filter(match);
 
   var intro = el('div', 'catintro');
-  intro.innerHTML = 'Программы записаны кодами Б3-34 с переходами в три шага — адреса совпадают с бумажным оригиналом. ' +
-                    'Нажми на название, чтобы раскрыть листинг.';
+  intro.textContent = 'Программы записаны кодами Б3-34 с переходами в три шага — адреса совпадают с бумажным оригиналом. ' +
+                      'Нажми на название, чтобы раскрыть листинг.';
   box.appendChild(intro);
 
   if(!items.length){
@@ -282,8 +278,7 @@ function drawList(){
       }
 
       if(p.input && p.input.length){
-        var inTitle = el('div', 'row', 'Вход:');
-        body.appendChild(inTitle);
+        body.appendChild(el('div', 'row', 'Вход:'));
         p.input.forEach(function(pair){
           body.appendChild(el('div', 'row', '   ' + pair[0] + ' — ' + pair[1]));
         });
@@ -426,5 +421,12 @@ if(document.readyState === 'loading'){
 }else{
   init();
 }
+
+/* Публичный интерфейс для кнопки «📥 Пример…» на вкладке калькулятора */
+window.B334Cat = {
+  progs: PROGS,
+  load: loadIntoCalc,
+  listing: listingText
+};
 
 })();

@@ -106,6 +106,21 @@ button.key.on{outline:2px solid #ffd166;outline-offset:1px}
 .acts button{border:none;border-radius:9px;padding:12px;font-size:13px;font-family:inherit}
 .acts .load{background:#2c6b3f;color:#eafff0;font-weight:700}
 .acts .copy{background:#2b2d26;color:#ddd8c9;border:1px solid #45473c}
+
+/* ---------- выбор готовой программы ---------- */
+.sheet{position:fixed;inset:0;background:rgba(0,0,0,.62);display:none;align-items:flex-end;justify-content:center;z-index:60;padding:12px}
+.sheet.on{display:flex}
+.sheetbox{width:100%;max-width:440px;background:#1e2119;border:1px solid #383b30;border-radius:16px;padding:12px;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 -8px 30px rgba(0,0,0,.5)}
+.sheettop{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;color:#e9e6db;font-size:14px}
+.sheettop b{font-weight:700}
+.sheettop button{background:#2b2d26;border:1px solid #45473c;color:#ddd8c9;border-radius:8px;padding:6px 12px;font-family:inherit;font-size:13px}
+.sheetlist{overflow-y:auto;display:flex;flex-direction:column;gap:6px}
+.sheetitem{display:flex;align-items:center;gap:10px;background:#262a22;border:1px solid #3a3e33;border-radius:10px;padding:11px 12px;color:#e9e6db;font-size:13px;font-family:inherit;text-align:left;width:100%}
+.sheetitem .ic{font-size:17px;line-height:1}
+.sheetitem .tx{flex:1;min-width:0}
+.sheetitem .tx span{display:block;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sheetitem .tx small{display:block;color:#8f9a8a;font-size:11px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sheetnote{margin-top:10px;font-size:11px;color:#75806f;line-height:1.4}
 </style>
 </head>
 <body>
@@ -136,11 +151,12 @@ button.key.on{outline:2px solid #ffd166;outline-offset:1px}
     <button id="btnSound" class="on">🔊 Звук: вкл</button>
     <button id="btnVoice" class="on">🗣 Голос: вкл</button>
     <button id="btnMic">🎤 Сказать</button>
-    <button id="btnDemo">📥 Пример: n!</button>
-    <button id="btnDemo2" class="prim">📐 Пример: отрезок</button>
-    <button id="btnDemo3" class="prim">🔢 Пример: НОД</button>
+    <button id="btnPick" class="prim">📥 Пример…</button>
     <button id="btnHelp">❓ Справка</button>
     <button id="btnReset">⏻ Сброс</button>
+    <button id="btnDemo" style="display:none">📥 Пример: n!</button>
+    <button id="btnDemo2" style="display:none">📐 Пример: отрезок</button>
+    <button id="btnDemo3" style="display:none">🔢 Пример: НОД</button>
   </div>
   <div class="hint" id="hint">RPN: сначала число, затем В↑ и второе число, потом операция. Например 5 В↑ 3 + → 8.</div>
 
@@ -203,19 +219,20 @@ button.key.on{outline:2px solid #ffd166;outline-offset:1px}
 
     <h3>Справочник программ</h3>
     <p>Вторая вкладка сверху — <code>📚 Программы</code>. Там готовые программы по темам: нажми на название, раскроется листинг в кодах с расшифровкой каждой строки, кнопка <code>▶ Загрузить в калькулятор</code> кладёт программу в память (и нужные числа в регистры), <code>📋 Скопировать коды</code> — текстом в буфер.</p>
+    <p>На вкладке калькулятора для быстрого доступа есть одна кнопка <code>📥 Пример…</code> — она открывает список тех же программ из справочника. Данные берутся из одного места, поэтому расхождений между кнопкой и вкладкой быть не может.</p>
 
     <h3>Пример из литературы: длина отрезка</h3>
     <p>Программа из открытого примера для МК-61 (система команд и коды полностью совместимы с Б3-34):</p>
     <p><code>00 61</code> П→X 1 · <code>01 62</code> П→X 2 · <code>02 11</code> − · <code>03 22</code> x² · <code>04 63</code> П→X 3 · <code>05 64</code> П→X 4 · <code>06 11</code> − · <code>07 22</code> x² · <code>08 10</code> + · <code>09 21</code> √ · <code>10 50</code> С/П</p>
     <p>Считает d = √((x₂−x₁)² + (y₂−y₁)²). Данные: x₁ → R2, y₁ → R4, x₂ → R1, y₂ → R3. Для точек (1; 2) и (8; 4) ответ 7.2801098.</p>
-    <p>Кнопка <code>📐 Пример: отрезок</code> загружает программу вместе с данными — остаётся нажать <code>▶ Пуск</code>.</p>
+    <p>Кнопка <code>📥 Пример…</code> → «Длина отрезка» загружает программу вместе с данными — остаётся нажать <code>▶ Пуск</code>.</p>
 
     <h3>Факториал</h3>
-    <p>Кнопка <code>📥 Пример: n!</code> загружает программу n! на 13 шагов. Число заносится в R0 (набери значение и нажми <code>x→П</code> → <code>0</code> или используй панель регистров), потом <code>▶ Пуск</code>.</p>
+    <p><code>📥 Пример…</code> → «n! — факториал» загружает программу на 13 шагов. Число заносится в R0 (набери значение и нажми <code>x→П</code> → <code>0</code> или используй панель регистров), потом <code>▶ Пуск</code>.</p>
     <p>Цикл <code>L1</code> стоит на адресе 08 и отнимает единицу у R1, а адрес возврата 04 записан двумя цифрами — в ячейках 09 и 10.</p>
 
     <h3>НОД четырёх чисел</h3>
-    <p>Кнопка <code>🔢 Пример: НОД</code> загружает программу поиска наибольшего общего делителя чисел из R1–R4 алгоритмом Евклида <b>вычитанием</b> (функции остатка у Б3-34 нет).</p>
+    <p><code>📥 Пример…</code> → «НОД четырёх чисел» загружает программу поиска наибольшего общего делителя чисел из R1–R4 алгоритмом Евклида <b>вычитанием</b> (функции остатка у Б3-34 нет).</p>
     <p>Числа уже подставлены: 32, 124, 206 и 1086. Включи <b>быстрый темп</b> — в оригинальном счёте 1086 и 2 потребуют сотен итераций — и нажми <code>▶ Пуск</code>. Ответ <b>2</b>.</p>
     <p>Главная программа занимает адреса 00–14, подпрограмма НОД вызывается по <code>ПП 20</code> и лежит с адреса 20 по 40.</p>
 
@@ -251,6 +268,14 @@ button.key.on{outline:2px solid #ffd166;outline-offset:1px}
 
 </div>
 
+<div class="sheet" id="demoSheet">
+  <div class="sheetbox">
+    <div class="sheettop"><b>Готовые программы</b><button id="demoClose">✕</button></div>
+    <div class="sheetlist" id="demoList"></div>
+    <div class="sheetnote">Тот же список, что во вкладке «📚 Программы». После выбора программа загрузится в калькулятор вместе с числами для проверки.</div>
+  </div>
+</div>
+
 <script>
 /* Однократная проверка формата записей: в старой версии переход занимал
    две ячейки, в новой — три (команда + десятки + единицы). Если в сохранении
@@ -258,7 +283,7 @@ button.key.on{outline:2px solid #ffd166;outline-offset:1px}
    очищается, чтобы калькулятор не выдавал ЕГГОГ на «правильной» программе. */
 (function(){
   try{
-    if(localStorage.getItem('b334.fmt') === '4') return;
+    if(localStorage.getItem('b334.fmt') === '5') return;
     var KEY = 'b334.state.v3';
     var raw = localStorage.getItem(KEY);
     var bad = false;
@@ -281,13 +306,13 @@ button.key.on{outline:2px solid #ffd166;outline-offset:1px}
       }
     }
     if(bad) localStorage.removeItem(KEY);
-    localStorage.setItem('b334.fmt', '4');
+    localStorage.setItem('b334.fmt', '5');
   }catch(e){}
 })();
 </script>
 
 <script src="b3-34.js?v=5"></script>
-<script src="catalog.js?v=1"></script>
+<script src="catalog.js?v=2"></script>
 <script>
 (function(){
   var btns = document.querySelectorAll('.tabs button');
@@ -306,6 +331,62 @@ button.key.on{outline:2px solid #ffd166;outline-offset:1px}
       window.scrollTo(0, 0);
     });
   }
+})();
+</script>
+<script>
+/* Кнопка «📥 Пример…»: один список, данные из catalog.js (window.B334Cat) */
+(function(){
+  var sheet = document.getElementById('demoSheet');
+  var list = document.getElementById('demoList');
+  var open = document.getElementById('btnPick');
+  var close = document.getElementById('demoClose');
+  if(!sheet || !list || !open) return;
+
+  function closeSheet(){ sheet.classList.remove('on'); }
+
+  function fill(){
+    list.innerHTML = '';
+    var cat = window.B334Cat;
+    if(!cat || !cat.progs || !cat.progs.length){
+      var d = document.createElement('div');
+      d.className = 'sheetnote';
+      d.textContent = 'Справочник не загрузился. Обнови страницу.';
+      list.appendChild(d);
+      return;
+    }
+    cat.progs.forEach(function(p){
+      var b = document.createElement('button');
+      b.className = 'sheetitem';
+
+      var ic = document.createElement('span');
+      ic.className = 'ic';
+      ic.textContent = p.icon || '📄';
+
+      var tx = document.createElement('span');
+      tx.className = 'tx';
+      var nm = document.createElement('span');
+      nm.textContent = p.title;
+      var sm = document.createElement('small');
+      sm.textContent = p.codes.length + ' шагов' + (p.check ? ' · ' + p.check : '');
+      tx.appendChild(nm);
+      tx.appendChild(sm);
+
+      b.appendChild(ic);
+      b.appendChild(tx);
+      b.addEventListener('click', function(){
+        closeSheet();
+        cat.load(p);
+      });
+      list.appendChild(b);
+    });
+  }
+
+  open.addEventListener('click', function(){
+    fill();
+    sheet.classList.add('on');
+  });
+  if(close) close.addEventListener('click', closeSheet);
+  sheet.addEventListener('click', function(e){ if(e.target === sheet) closeSheet(); });
 })();
 </script>
 </body>

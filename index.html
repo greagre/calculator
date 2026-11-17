@@ -56,13 +56,19 @@
 
   #heard {
     margin-top: 8px; min-height: 16px; font-size: 12px;
-    color: #9aa4b5; text-align: center; line-height: 1.4;
+    color: #9aa4b5; text-align: center; line-height: 1.45;
   }
   #install {
     display: block; width: 100%; margin-top: 10px;
     background: #22a06b; font-size: 16px;
   }
   #install[hidden] { display: none; }
+
+  .footer {
+    display: flex; gap: 8px; align-items: center; margin-top: 8px;
+  }
+  .footer .tool { flex: 0 0 auto; padding: 8px 12px; font-size: 12px; opacity: 1; }
+  #ver { margin-left: auto; font-size: 11px; color: #6f7a8c; }
 </style>
 </head>
 <body>
@@ -101,6 +107,11 @@
     <div id="heard"></div>
 
     <button id="install" hidden>Установить приложение</button>
+
+    <div class="footer">
+      <button type="button" id="refresh" class="tool">🔄 Обновить</button>
+      <span id="ver">версия 4</span>
+    </div>
   </div>
 
 <script>
@@ -342,10 +353,10 @@
     // символы операций, как их иногда подставляет распознавание
     t = t.replace(/×/g, ' * ').replace(/÷/g, ' / ').replace(/[−–—]/g, ' - ');
 
-    // «24х6», «24 x 6» → умножение
+    // «24х6», «24 x 6», «24*6» — умножение
     t = t.replace(/(\d)\s*[хx]\s*(\d)/g, '$1 * $2');
 
-    // операции словами (только целые слова, чтобы не портить «сделай»)
+    // операции словами
     t = t
       .replace(/(^|\s)умнож\w*(\s+на)?/g, ' * ')
       .replace(/(^|\s)помнож\w*(\s+на)?/g, ' * ')
@@ -457,25 +468,25 @@
   /* ---------- Обработка голосовой команды ---------- */
 
   function handleVoice(text) {
-    heardEl.textContent = 'Услышано: «' + text + '»';
+    const shown = '«' + text + '»';
 
     if (/(очист|сброс|сбрось|стереть|обнул)/.test(text.toLowerCase())) {
       clearAll();
-      heardEl.textContent = 'Услышано: «' + text + '» — сброс';
+      heardEl.textContent = 'Услышано: ' + shown + ' — сброс';
       beep(320, 0.1);
       speak('Сброшено');
       return;
     }
 
     const tokens = parseCommand(text);
+    const debug = tokens.length ? tokens.join(' ') : '—';
     const result = evaluateTokens(tokens);
 
     if (result === null) {
-      // два числа без действия — подскажем, что назвать
       const numbersOnly = tokens.length >= 2 && tokens.every(v => typeof v === 'number');
       heardEl.textContent = numbersOnly
-        ? 'Услышано: «' + text + '» — не поняла действие, скажи «умножить», «плюс», «минус» или «делить»'
-        : 'Услышано: «' + text + '» — не поняла выражение';
+        ? 'Услышано: ' + shown + ' · разбор: ' + debug + ' — не поняла действие, скажи «умножить», «плюс», «минус» или «делить»'
+        : 'Услышано: ' + shown + ' · разбор: ' + debug + ' — не поняла выражение';
       speak(numbersOnly ? 'Не поняла действие' : 'Не поняла выражение');
       return;
     }
@@ -484,7 +495,7 @@
       current = 'Ошибка';
       previous = null; op = null; fresh = true;
       update();
-      heardEl.textContent = 'Услышано: «' + text + '» — деление на ноль';
+      heardEl.textContent = 'Услышано: ' + shown + ' · разбор: ' + debug + ' — деление на ноль';
       speak('Ошибка, деление на ноль');
       return;
     }
@@ -493,7 +504,7 @@
     current = String(rounded);
     previous = null; op = null; fresh = true;
     update();
-    heardEl.textContent = 'Услышано: «' + text + '» → ' + rounded;
+    heardEl.textContent = 'Услышано: ' + shown + ' · разбор: ' + debug + ' → ' + rounded;
     beep(880, 0.14);
     speak('Равно ' + rounded);
   }
@@ -515,13 +526,37 @@
     else if (canSpeak) speechSynthesis.cancel();
   });
 
-  /* ================= УСТАНОВКА ПРИЛОЖЕНИЯ ================= */
+  /* ================= УСТАНОВКА И ОБНОВЛЕНИЕ ================= */
 
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('sw.js').catch(() => {});
     });
+
+    // если пришёл новый service worker — один раз перезагружаем страницу,
+    // чтобы сразу открылась свежая версия
+    let reloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (reloaded) return;
+      reloaded = true;
+      location.reload();
+    });
   }
+
+  // кнопка «Обновить»: чистит кэш и служебный воркер, затем перезагружает страницу
+  document.getElementById('refresh').addEventListener('click', async () => {
+    try {
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map(k => caches.delete(k)));
+      }
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map(r => r.unregister()));
+      }
+    } catch (e) { /* всё равно перезагружаем */ }
+    location.reload();
+  });
 
   const installBtn = document.getElementById('install');
   let deferredPrompt = null;

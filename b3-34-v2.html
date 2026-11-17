@@ -3,118 +3,116 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Б3-34 v2 — ядро и проверка</title>
+<title>Б3-34 v2</title>
 <style>
-  body{margin:0;padding:16px 14px 40px;background:#f6f7f9;color:#111;
-       font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-  h1{font-size:18px;margin:0 0 6px}
-  p.sub{margin:0 0 16px;color:#555;font-size:13px;line-height:1.45}
-  button{font:inherit;padding:12px 18px;border:0;border-radius:10px;
-         background:#1a73e8;color:#fff;font-weight:600;margin:0 8px 10px 0}
-  button.ghost{background:#e3e8ee;color:#111}
-  button:active{transform:scale(.99)}
-  table{width:100%;border-collapse:collapse;margin-top:12px;font-size:13px}
-  th,td{padding:8px 6px;border-bottom:1px solid #e0e0e0;text-align:left}
-  th{color:#666;font-weight:600;font-size:12px}
-  td.num{font-variant-numeric:tabular-nums}
-  .ok{color:#0a7d32;font-weight:700}
-  .bad{color:#c62828;font-weight:700}
-  .sum{margin-top:16px;font-size:14px;font-weight:700}
-  .code{font-family:ui-monospace,Menlo,Consolas,monospace;color:#444;font-size:12px}
-  .lst{margin-top:14px}
-  .lst td{padding:5px 6px;border-bottom:1px solid #eee;font-size:13px}
-  .lst tr.addr td{color:#888}
-  .hint{color:#666;font-size:12px;margin-top:10px}
+  :root{
+    --bg:#eef1f4; --panel:#ffffff; --ink:#14181d; --dim:#5f6b78;
+    --line:#d5dce3; --accent:#1a73e8; --ok:#0a7d32; --bad:#c62828;
+    --key:#f4f7fa; --keycmd:#e2ebf7;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;padding:0 0 40px;background:var(--bg);color:var(--ink);
+       font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+       -webkit-text-size-adjust:100%}
+  header{padding:12px 14px 0}
+  h1{font-size:17px;margin:0 0 10px}
+  h1 span{color:var(--dim);font-weight:500}
+  #tabs{display:flex;gap:6px;margin-bottom:12px}
+  #tabs button{flex:1;font:inherit;font-size:13px;font-weight:600;padding:9px 6px;
+       border:1px solid var(--line);background:#fff;color:var(--dim);
+       border-radius:9px}
+  #tabs button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  main{padding:0 14px}
+
+  .screen{background:#0d1117;border-radius:12px;padding:14px 16px;color:#e6edf3;
+       box-shadow:inset 0 0 0 1px #1f2630}
+  #disp{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:30px;
+       letter-spacing:1px;text-align:right;min-height:38px;overflow-x:auto;
+       white-space:nowrap;color:#8ee6a0}
+  #status{font-size:12px;color:#8b97a5;margin-top:6px;min-height:16px;
+       font-family:ui-monospace,Menlo,Consolas,monospace}
+
+  .rowbtns{display:flex;gap:8px;margin:12px 0}
+  .rowbtns button{flex:1;font:inherit;font-size:14px;font-weight:600;padding:11px 8px;
+       border:1px solid var(--line);background:#fff;border-radius:10px;color:var(--ink)}
+  #btnRun{background:var(--accent);border-color:var(--accent);color:#fff}
+
+  #regs{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-bottom:12px}
+  .reg{background:#fff;border:1px solid var(--line);border-radius:8px;padding:5px 4px;
+       text-align:center;font-family:ui-monospace,Menlo,Consolas,monospace}
+  .rn{display:block;font-size:10px;color:var(--dim)}
+  .rv{display:block;font-size:12px;margin-top:2px;overflow:hidden;text-overflow:ellipsis}
+
+  .gtitle{font-size:12px;font-weight:700;color:var(--dim);margin:12px 0 6px;
+       text-transform:uppercase;letter-spacing:.4px}
+  .krow{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+  .key{font:inherit;font-size:15px;font-weight:600;padding:13px 2px;border:1px solid var(--line);
+       border-radius:10px;background:var(--key);color:var(--ink);min-height:46px}
+  .key.cmd{background:var(--keycmd);font-size:13px}
+  .key.reg{background:#e9f7ee;border-color:#bfe3cc;font-size:14px}
+  .key.regkey{background:#fff;font-size:13px;color:var(--dim)}
+  .key:active{transform:scale(.97)}
+
+  #msg{font-size:13px;color:var(--dim);margin-top:12px;min-height:18px}
+
+  .lhead{font-size:12px;color:var(--dim);margin:14px 0 6px}
+  table.lst{width:100%;border-collapse:collapse;background:#fff;border-radius:10px;
+       overflow:hidden;font-size:13px}
+  table.lst th{font-size:11px;color:var(--dim);text-align:left;padding:7px 8px;
+       background:#f2f5f8;font-weight:600}
+  table.lst td{padding:6px 8px;border-top:1px solid #eef1f4;
+       font-family:ui-monospace,Menlo,Consolas,monospace}
+  table.lst tr.addr td{color:#9aa5b1}
+  table.lst td.ok{color:var(--ok);font-weight:700}
+  table.lst td.bad{color:var(--bad);font-weight:700}
+
+  .hint{font-size:12px;color:var(--dim);line-height:1.45;margin:0 0 12px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px;
+       margin-bottom:10px}
+  .ctitle{font-weight:700;font-size:14px}
+  .cinfo{font-size:12px;color:var(--dim);margin:5px 0 10px;line-height:1.4}
+  button.load{font:inherit;font-size:13px;font-weight:600;padding:10px 16px;border:0;
+       border-radius:9px;background:var(--accent);color:#fff}
+  .sum{font-size:14px;font-weight:700;margin-top:12px}
+  .checkout{margin-top:12px}
 </style>
 </head>
 <body>
 
-<h1>Б3-34 v2 — ядро и проверка</h1>
-<p class="sub">
-  Программа — список инструкций: адрес перехода указывается номером шага, а не ячейкой.
-  Ядро само раскладывает переход на три ячейки (команда + десятки + единицы).
-  Кнопка прогоняет все программы справочника и сверяет ответ с ожидаемым.
-</p>
+<header>
+  <h1>Б3-34 <span>v2</span></h1>
+  <nav id="tabs">
+    <button data-tab="calc" class="on">Калькулятор</button>
+    <button data-tab="progs">Программы</button>
+    <button data-tab="check">Проверка</button>
+  </nav>
+</header>
 
-<button id="run">Прогнать проверку</button>
-<button id="show" class="ghost">Показать листинг «n!»</button>
+<main>
+  <section id="tab-calc">
+    <div class="screen">
+      <div id="disp">0</div>
+      <div id="status"></div>
+    </div>
 
-<div id="out"></div>
-<div id="lstBox"></div>
+    <div class="rowbtns">
+      <button id="btnMode" type="button">→ ПРГ</button>
+      <button id="btnClear" type="button">Стереть</button>
+      <button id="btnRun" type="button">С/П</button>
+    </div>
+
+    <div id="regs"></div>
+    <div id="keys"></div>
+    <div id="listBox"></div>
+    <div id="msg"></div>
+  </section>
+
+  <section id="tab-progs" hidden></section>
+  <section id="tab-check" hidden></section>
+</main>
 
 <script src="core.js"></script>
 <script src="programs.js"></script>
-<script>
-(function(){
-"use strict";
-
-var out = document.getElementById('out');
-var lstBox = document.getElementById('lstBox');
-
-function check(){
-  var rows = [];
-  (window.B3PROGS || []).forEach(function(p){
-    var res = window.B3Core.run(p.code, { R: p.data || {}, maxSteps: 200000 });
-    var ok = !res.err && Math.abs(res.value - p.expect) <= Math.max(1e-6, Math.abs(p.expect) * 1e-7);
-    rows.push({
-      title: p.title,
-      cells: res.cells,
-      expect: p.expect,
-      got: res.err ? 'ЕГГОГ' : window.B3Core.fmt(res.value),
-      steps: res.steps,
-      ok: ok,
-      errors: res.errors || []
-    });
-  });
-
-  var html = '<table><thead><tr><th>Программа</th><th>Ячеек</th><th>Ожидалось</th><th>Получилось</th><th>Шагов</th></tr></thead><tbody>';
-  rows.forEach(function(r){
-    html += '<tr>' +
-      '<td>' + r.title + '</td>' +
-      '<td class="num">' + r.cells + '</td>' +
-      '<td class="num">' + r.expect + '</td>' +
-      '<td class="num ' + (r.ok ? 'ok' : 'bad') + '">' + r.got + '</td>' +
-      '<td class="num">' + r.steps + '</td>' +
-    '</tr>';
-  });
-  html += '</tbody></table>';
-
-  var bad = rows.filter(function(r){ return !r.ok; }).length;
-  html += '<div class="sum">' +
-    (bad ? '⚠️ Не сошлись: ' + bad + ' из ' + rows.length
-         : '✅ Все ' + rows.length + ' программ считаются верно') +
-    '</div>';
-
-  out.innerHTML = html;
-}
-
-function showListing(id){
-  var p = null;
-  (window.B3PROGS || []).forEach(function(x){ if(x.id === id) p = x; });
-  if(!p){ lstBox.innerHTML = ''; return; }
-
-  var built = window.B3Core.compile(p.code);
-  var rows = window.B3Core.listing(built.cells, built.length);
-
-  var html = '<div class="lst"><div class="code">' + p.title + ' — ' +
-             built.length + ' ячеек' +
-             (built.errors.length ? ' · ошибки: ' + built.errors.join('; ') : '') +
-             '</div><table><thead><tr><th>Адр</th><th>Код</th><th>Команда</th></tr></thead><tbody>';
-  rows.forEach(function(r){
-    html += '<tr class="' + (r.isAddr ? 'addr' : '') + '">' +
-      '<td class="num">' + String(r.addr).padStart(2,'0') + '</td>' +
-      '<td class="num">' + r.dec + '</td>' +
-      '<td>' + r.name + '</td></tr>';
-  });
-  html += '</tbody></table><div class="hint">Коды десятичные — ровно те, что набираются на клавишах.</div></div>';
-
-  lstBox.innerHTML = html;
-}
-
-document.getElementById('run').addEventListener('click', check);
-document.getElementById('show').addEventListener('click', function(){ showListing('fact'); });
-
-})();
-</script>
+<script src="ui.js"></script>
 </body>
 </html>

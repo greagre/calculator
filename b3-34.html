@@ -36,6 +36,8 @@ button.key.on{outline:2px solid #ffd166;outline-offset:1px}
 .tools{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:10px}
 .tools button{background:#2b2d26;color:#ddd8c9;border:1px solid #45473c;border-radius:9px;padding:10px;font-size:12px;font-family:inherit}
 .tools button.on{background:#2c4a33;border-color:#5f9d6f;color:#c9f5d4}
+.tools button.run{grid-column:1 / -1;background:#2c6b3f;border-color:#4d9a64;color:#eafff0;font-size:14px;font-weight:700;padding:13px}
+.tools button.prim{background:#2f5d8a;color:#fff;border-color:#3f6f9e}
 .hint{margin-top:8px;font-size:12px;color:#8f9a8a;line-height:1.4;min-height:16px}
 .mem{margin-top:10px;background:#1e2119;border:1px solid #383b30;border-radius:10px;padding:10px}
 .mem .lbl{color:#8f9a8a;font-size:11px;letter-spacing:1px;margin-bottom:8px}
@@ -69,10 +71,12 @@ button.key.on{outline:2px solid #ffd166;outline-offset:1px}
     <div class="panel" id="panel" style="display:none"></div>
   </div>
   <div class="tools">
+    <button id="btnRun" class="run">▶ Пуск программы</button>
     <button id="btnSound" class="on">🔊 Звук: вкл</button>
     <button id="btnVoice" class="on">🗣 Голос: вкл</button>
     <button id="btnMic">🎤 Сказать</button>
     <button id="btnDemo">📥 Пример: n!</button>
+    <button id="btnDemo2" class="prim">📐 Пример: отрезок</button>
     <button id="btnHelp">❓ Справка</button>
     <button id="btnReset">⏻ Сброс</button>
   </div>
@@ -94,20 +98,37 @@ button.key.on{outline:2px solid #ffd166;outline-offset:1px}
   <div class="help" id="help">
     <h3>Как считать</h3>
     <p>Обратная польская запись: <code>5 В↑ 3 +</code> даёт 8. Клавиша <code>В↑</code> разделяет числа, <code>↔</code> меняет X и Y, <code>F◯</code> прокручивает стек.</p>
+
+    <h3>Запуск программы — два способа</h3>
+    <p><b>Способ 1, кнопкой:</b> зелёная кнопка <code>▶ Пуск программы</code> под клавиатурой. Она сама переключает в автоматический режим, ставит счётчик адреса на 00 и запускает программу. Удобно для проверки, но помни: на настоящем Б3-34 такой кнопки не было — это наша добавка.</p>
+    <p><b>Способ 2, как на настоящем:</b> <code>f</code> → <code>АВТ</code> → <code>В/О</code> → <code>С/П</code>. Порядок именно такой: <code>АВТ</code> возвращает из режима программирования, <code>В/О</code> ставит адрес 00, <code>С/П</code> пускает. Второе нажатие <code>С/П</code> продолжает с места останова — так делают, когда в середине программы нужно ввести данные.</p>
+    <p><code>ПП</code> в режиме АВТ — выполнить один шаг, <code>В/О</code> — снова на адрес 00.</p>
+
+    <h3>Пример из литературы: длина отрезка</h3>
+    <p>Программа из открытого примера для МК-61 (система команд и коды полностью совместимы с Б3-34):</p>
+    <p><code>00 61</code> П→X 1 · <code>01 62</code> П→X 2 · <code>02 11</code> − · <code>03 22</code> x² · <code>04 63</code> П→X 3 · <code>05 64</code> П→X 4 · <code>06 11</code> − · <code>07 22</code> x² · <code>08 10</code> + · <code>09 21</code> √ · <code>10 50</code> С/П</p>
+    <p>Считает длину отрезка по координатам: d = √((x₂−x₁)² + (y₂−y₁)²). Данные заносятся так: x₁ → R2, y₁ → R4, x₂ → R1, y₂ → R3. Для точек (1; 2) и (8; 4) ответ 7.2801098.</p>
+    <p>Кнопка <code>📐 Пример: отрезок</code> загружает программу вместе с этими данными — остаётся нажать <code>▶ Пуск</code>.</p>
+
+    <h3>Насколько это аутентично</h3>
+    <p><b>Совпадает:</b> двузначные коды команд, 98 шагов программы, стек X/Y/Z/T, регистр предыдущего результата X1, 14 адресуемых регистров (0–9, a–d), обратная польская запись, логика переходов (условный переход срабатывает, когда условие <b>не</b> выполнено, а циклы L0–L3 идут, пока регистр не станет нулём), косвенная адресация через регистры.</p>
+    <p><b>Коды сверены с таблицей кодов Б3-34:</b> 10 «+», 11 «−», 12 «×», 13 «÷», 14 «↔», 0B «/-/», 0C «ВП», 0D «Cx», 0E «В↑», 0F «F Вx», 20 «π», 21 «√», 22 «x²», 23 «1/x», 24 «x^y», 25 «F◯», 50 «С/П», 51 «БП», 52 «В/О», 53 «ПП», 54 «К НОП», 57 «F x≠0», 58 «F L2», 59 «F x≥0», 5A «F L3», 5B «F L1», 5C «F x<0», 5D «F L0», 5E «F x=0», 4r «X→П r», 6r «П→X r», косвенные 7r, 8r, 9r, Ar, Cr, Er.</p>
+    <p><b>Не совпадает:</b> арифметика современная, двойной точности, вместо 8-разрядной двоично-десятичной с порядком до 10⁹⁹ — поэтому в последнем разряде результаты могут отличаться, а «ЕГГОГ» появляется реже, чем у оригинала; 98 шагов, но без недокументированных режимов и «еггогологии»; вывод округляется до 8 значащих цифр; раскладка адаптирована под сенсорный экран.</p>
+    <p>Команды К П→X и К X→П из МК-61 в эмулятор не включены: у Б3-34 их не было.</p>
+
     <h3>Регистры</h3>
-    <p><code>x→П</code> записывает X в регистр, <code>П→X</code> вызывает регистр. Доступны 14: 0–9, a, b, c, d — как в Б3-34.</p>
+    <p><code>x→П</code> записывает X в регистр, <code>П→X</code> вызывает регистр. Доступны 14: 0–9, a, b, c, d.</p>
+
     <h3>Программирование</h3>
     <p>Нажми <code>f</code>, затем <code>ПРГ</code> — калькулятор перейдёт в режим ввода программы. Каждое нажатие клавиши пишет её двузначный код в память (98 шагов, адреса 00–97). Команды переходов <code>БП</code>, <code>ПП</code>, условия <code>x&lt;0</code>, <code>x=0</code>, <code>x≥0</code>, <code>x≠0</code> и циклы <code>L0</code>–<code>L3</code> занимают две ячейки: сначала код, потом адрес.</p>
-    <p>Как в оригинале: условный переход срабатывает, когда условие <b>не</b> выполняется, а цикл L переходит, пока содержимое регистра <b>не равно</b> нулю.</p>
-    <p><code>С/П</code> — пуск и останов, <code>ПП</code> в режиме АВТ — один шаг, <code>В/О</code> — на адрес 00. Вернуться к вычислениям: <code>f</code> → <code>АВТ</code>.</p>
+
     <h3>Сохранение программ</h3>
     <p>Программа и регистры <b>сохраняются сами</b> в памяти браузера после каждого изменения — при следующем открытии всё на месте.</p>
     <p><code>💾 Сохранить программу</code> — даёт программе имя и кладёт её в список. В списке <code>▶</code> загружает программу в память калькулятора, <code>✕</code> — удаляет из списка.</p>
-    <p><code>⬇ Файл JSON</code> — все программы и текущее состояние одним файлом, удобно для переноса и резервной копии. <code>⬇ Файл TXT</code> — читаемый листинг с кодами и названиями команд. <code>⬆ Загрузить файл</code> — принимает оба формата: JSON подхватывает всё, TXT — коды по строкам вида <code>00: 60</code>.</p>
-    <p>Файлы уходят в папку «Загрузки» телефона (в Chrome — меню ⋮ → «Загрузки»). Очистка данных сайта в браузере удаляет и список программ — поэтому важное лучше дублировать файлом JSON.</p>
+    <p><code>⬇ Файл JSON</code> — все программы и текущее состояние одним файлом. <code>⬇ Файл TXT</code> — читаемый листинг с кодами и названиями команд. <code>⬆ Загрузить файл</code> — принимает оба формата.</p>
+
     <h3>Голос</h3>
     <p>Кнопка «Сказать» понимает фразы вроде «двадцать четыре умножить на шесть» и сразу выполняет их в RPN.</p>
-    <p style="color:#8f9a8a">Это калькулятор в логике Б3-34, а не побитовая копия микросхемы: арифметика современная, разрядность вывода приближена к 8+2.</p>
   </div>
 </div>
 <script>
@@ -218,18 +239,20 @@ var CMD_NAMES = {
   0x15:'10^x', 0x16:'e^x', 0x17:'lg', 0x18:'ln',
   0x19:'arcsin', 0x1A:'arccos', 0x1B:'arctg', 0x1C:'sin', 0x1D:'cos', 0x1E:'tg',
   0x20:'π', 0x21:'√', 0x22:'x²', 0x23:'1/x', 0x24:'x^y', 0x25:'F◯',
-  0x50:'С/П', 0x51:'БП', 0x52:'В/О', 0x53:'ПП', 0x54:'НОП',
-  0x57:'x≠0', 0x58:'L2', 0x59:'x≥0', 0x5A:'L3', 0x5B:'L1', 0x5C:'x<0', 0x5D:'L0', 0x5E:'x=0'
+  0x50:'С/П', 0x51:'БП', 0x52:'В/О', 0x53:'ПП', 0x54:'К НОП',
+  0x57:'F x≠0', 0x58:'F L2', 0x59:'F x≥0', 0x5A:'F L3', 0x5B:'F L1', 0x5C:'F x<0', 0x5D:'F L0', 0x5E:'F x=0'
 };
 function cmdName(c){
   if(c >= 0 && c <= 9) return String(c);
   if(CMD_NAMES[c]) return CMD_NAMES[c];
   if(c >= 0x40 && c <= 0x4D) return 'X→П ' + REG_NAMES[c & 15];
   if(c >= 0x60 && c <= 0x6D) return 'П→X ' + REG_NAMES[c & 15];
+  if(c >= 0x70 && c <= 0x7D) return 'К x≠0 ' + REG_NAMES[c & 15];
   if(c >= 0x80 && c <= 0x8D) return 'К БП ' + REG_NAMES[c & 15];
+  if(c >= 0x90 && c <= 0x9D) return 'К x≥0 ' + REG_NAMES[c & 15];
   if(c >= 0xA0 && c <= 0xAD) return 'К ПП ' + REG_NAMES[c & 15];
-  if(c >= 0xB0 && c <= 0xBD) return 'К X→П ' + REG_NAMES[c & 15];
-  if(c >= 0xD0 && c <= 0xDD) return 'К П→X ' + REG_NAMES[c & 15];
+  if(c >= 0xC0 && c <= 0xCD) return 'К x<0 ' + REG_NAMES[c & 15];
+  if(c >= 0xE0 && c <= 0xED) return 'К x=0 ' + REG_NAMES[c & 15];
   return '?';
 }
 
@@ -361,12 +384,9 @@ var KS = [
   {t:'БП R', a:'kcmd', k:0x80, cls:'dark'},
   {t:'ПП R', a:'kcmd', k:0xA0, cls:'dark'},
   {t:'x≠0 R', a:'kcmd', k:0x70, cls:'dark'},
+  {t:'x≥0 R', a:'kcmd', k:0x90, cls:'dark'},
   {t:'x<0 R', a:'kcmd', k:0xC0, cls:'dark'},
-  {t:'x=0 R', a:'kcmd', k:0xE0, cls:'dark'},
-
-  {t:'x≤0 R', a:'kcmd', k:0x90, cls:'dark'},
-  {t:'П→X R', a:'kcmd', k:0xD0, cls:'dark'},
-  {t:'X→П R', a:'kcmd', k:0xB0, cls:'dark'}
+  {t:'x=0 R', a:'kcmd', k:0xE0, cls:'dark'}
 ];
 
 function keysForLayer(){
@@ -583,7 +603,7 @@ function runStep(){
   if(hi === 0xD){ pushValue(ST.R[modAddr(ST.R[lo], lo) % 14]); ST.ip++; return 'cont'; }
 
   if(hi === 7){ if(ST.X !== 0){ ST.ip++; } else { ST.ip = modAddr(ST.R[lo], lo); } return 'jump'; }
-  if(hi === 9){ if(ST.X > 0){ ST.ip++; } else { ST.ip = modAddr(ST.R[lo], lo); } return 'jump'; }
+  if(hi === 9){ if(ST.X >= 0){ ST.ip++; } else { ST.ip = modAddr(ST.R[lo], lo); } return 'jump'; }
   if(hi === 0xC){ if(ST.X < 0){ ST.ip++; } else { ST.ip = modAddr(ST.R[lo], lo); } return 'jump'; }
   if(hi === 0xE){ if(ST.X === 0){ ST.ip++; } else { ST.ip = modAddr(ST.R[lo], lo); } return 'jump'; }
 
@@ -610,6 +630,21 @@ function runAll(){
   ST.run = false;
   render();
   if(!ST.err) say(speechNum(ST.X));
+}
+
+/* кнопка «Пуск»: то же, что f АВТ + В/О + С/П */
+function runProgram(){
+  ST.mode = 'AUT';
+  ST.ip = 0;
+  ST.sub = [];
+  ST.err = false;
+  ST.typing = false;
+  ST.input = '';
+  ST.exp = false;
+  drawPad();
+  hint('Пуск: адрес 00, автоматический режим');
+  render();
+  runAll();
 }
 
 /* ---------- обработка клавиш ---------- */
@@ -913,7 +948,7 @@ function loadFromLib(idx){
   ST.err = false;
   drawPad();
   render();
-  hint('Программа «' + lib[idx].name + '» загружена в память калькулятора. Запуск: f → АВТ, В/О, С/П');
+  hint('Программа «' + lib[idx].name + '» загружена. Запуск: «▶ Пуск программы» или f → АВТ, В/О, С/П');
   clickOk();
   say('программа загружена');
 }
@@ -1287,11 +1322,29 @@ function loadDemo(){
   var demo = [0x60,0x41,0x01,0x42,0x62,0x61,0x12,0x42,0x5B,0x04,0x62,0x50];
   for(var i = 0; i < 98; i++) ST.prog[i] = 0x54;
   for(var j = 0; j < demo.length; j++) ST.prog[j] = demo[j];
-  ST.mode = 'PRG';
+  ST.mode = 'AUT';
   ST.ip = 0;
+  ST.err = false;
   drawPad();
   render();
-  hint('Загружена программа n!: адреса 00–11. Рядом: n → R0, затем f→АВТ, В/О, С/П');
+  hint('Программа n! (адреса 00–11). Занеси n в R0: число → x→П → 0. Затем «▶ Пуск программы» или f → АВТ, В/О, С/П');
+  say('программа загружена');
+}
+
+function loadDemo2(){
+  var demo = [0x61,0x62,0x11,0x22,0x63,0x64,0x11,0x22,0x10,0x21,0x50];
+  for(var i = 0; i < 98; i++) ST.prog[i] = 0x54;
+  for(var j = 0; j < demo.length; j++) ST.prog[j] = demo[j];
+  ST.mode = 'AUT';
+  ST.ip = 0;
+  ST.err = false;
+  ST.R[1] = 8;   /* x2 */
+  ST.R[2] = 1;   /* x1 */
+  ST.R[3] = 4;   /* y2 */
+  ST.R[4] = 2;   /* y1 */
+  drawPad();
+  render();
+  hint('Длина отрезка (коды совместимы с Б3-34). Данные уже в регистрах: x1=1 в R2, y1=2 в R4, x2=8 в R1, y2=4 в R3. Жми «▶ Пуск» → 7.2801098');
   say('программа загружена');
 }
 
@@ -1318,6 +1371,7 @@ function syncToggles(){
   bv.textContent = ST.voiceOn ? '🗣 Голос: вкл' : '🔇 Голос: выкл';
 }
 
+document.getElementById('btnRun').addEventListener('click', function(){ clickOk(); runProgram(); });
 document.getElementById('btnSound').addEventListener('click', function(){
   ST.soundOn = !ST.soundOn;
   syncToggles();
@@ -1332,6 +1386,7 @@ document.getElementById('btnVoice').addEventListener('click', function(){
 });
 document.getElementById('btnMic').addEventListener('click', startVoice);
 document.getElementById('btnDemo').addEventListener('click', loadDemo);
+document.getElementById('btnDemo2').addEventListener('click', loadDemo2);
 document.getElementById('btnHelp').addEventListener('click', function(){
   var h = document.getElementById('help');
   h.style.display = h.style.display === 'block' ? 'none' : 'block';

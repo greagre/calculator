@@ -39,6 +39,25 @@
   .eq:hover { background: #2ec07f; }
   .clr { background: #d94747; }
   .clr:hover { background: #ee5c5c; }
+
+  .tools { display: flex; gap: 8px; margin-top: 10px; }
+  .tool {
+    flex: 1; font-size: 14px; padding: 10px 0;
+    background: #3a4150; opacity: .6;
+  }
+  .tool.on { background: #22a06b; opacity: 1; }
+  #mic {
+    width: 100%; margin-top: 8px; background: #2f6fff; font-size: 16px;
+  }
+  #mic:hover { background: #4b84ff; }
+  #mic.listening { background: #d94747; animation: pulse 1s infinite; }
+  #mic[disabled] { background: #555b68; opacity: .7; cursor: default; }
+  @keyframes pulse { 50% { opacity: .55; } }
+
+  #heard {
+    margin-top: 8px; min-height: 16px; font-size: 12px;
+    color: #9aa4b5; text-align: center; line-height: 1.4;
+  }
   #install {
     display: block; width: 100%; margin-top: 10px;
     background: #22a06b; font-size: 16px;
@@ -72,17 +91,99 @@
 
       <button data-digit="0">0</button>
     </div>
+
+    <div class="tools">
+      <button type="button" id="sound" class="tool on">🔊 Звук вкл</button>
+      <button type="button" id="voice" class="tool on">🗣 Голос вкл</button>
+    </div>
+
+    <button type="button" id="mic">🎤 Сказать пример</button>
+    <div id="heard"></div>
+
     <button id="install" hidden>Установить приложение</button>
   </div>
 
 <script>
   const display = document.getElementById('display');
+  const heardEl = document.getElementById('heard');
+  const micBtn = document.getElementById('mic');
+  const soundBtn = document.getElementById('sound');
+  const voiceBtn = document.getElementById('voice');
+
   let current = '0';     // число на экране
   let previous = null;   // первое число выражения
   let op = null;         // выбранная операция
   let fresh = false;     // следующий ввод начинает новое число
 
+  let soundOn = true;    // звук нажатий
+  let voiceOn = true;    // голосовой вывод
+
   const update = () => { display.value = current; };
+
+  /* ================= ЗВУК НАЖАТИЙ (Web Audio, без файлов) ================= */
+
+  let audioCtx = null;
+
+  function beep(freq, dur) {
+    if (!soundOn) return;
+    try {
+      if (!audioCtx) {
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) return;
+        audioCtx = new Ctx();
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+
+      const t0 = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+
+      gain.gain.setValueAtTime(0.0001, t0);
+      gain.gain.exponentialRampToValueAtTime(0.2, t0 + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(t0);
+      osc.stop(t0 + dur + 0.03);
+    } catch (e) { /* нет поддержки звука — молча продолжаем */ }
+  }
+
+  /* ================= ГОЛОСОВОЙ ВЫВОД ================= */
+
+  const canSpeak = 'speechSynthesis' in window;
+  let ruVoice = null;
+
+  function pickVoice() {
+    if (!canSpeak) return;
+    const voices = speechSynthesis.getVoices() || [];
+    ruVoice = voices.find(v => v.lang && v.lang.toLowerCase().startsWith('ru')) || null;
+  }
+
+  if (canSpeak) {
+    pickVoice();
+    speechSynthesis.onvoiceschanged = pickVoice;
+  }
+
+  function speak(text) {
+    if (!voiceOn || !canSpeak || !text) return;
+    try {
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(String(text));
+      u.lang = 'ru-RU';
+      u.rate = 1.05;
+      u.pitch = 1;
+      if (ruVoice) u.voice = ruVoice;
+      speechSynthesis.speak(u);
+    } catch (e) { /* не получилось озвучить */ }
+  }
+
+  const OP_WORDS = { '+': 'плюс', '-': 'минус', '*': 'умножить', '/': 'делить' };
+
+  /* ================= ОБЫЧНЫЙ КАЛЬКУЛЯТОР ================= */
 
   function digit(d) {
     if (fresh) { current = '0'; fresh = false; }
@@ -122,27 +223,284 @@
   function clearAll() {
     current = '0'; previous = null; op = null; fresh = false;
     update();
+    heardEl.textContent = '';
   }
 
-  document.querySelectorAll('button').forEach(btn => {
+  document.querySelectorAll('.keys button').forEach(btn => {
     btn.addEventListener('click', () => {
       const { digit: d, op: o, action } = btn.dataset;
-      if (d !== undefined) digit(d);
-      else if (o) chooseOp(o);
-      else if (action === 'point') point();
-      else if (action === 'equals') compute();
-      else if (action === 'clear') clearAll();
+
+      if (d !== undefined) {
+        digit(d);
+        beep(660, 0.06);
+        speak(d);
+      } else if (o) {
+        chooseOp(o);
+        beep(520, 0.08);
+        speak(OP_WORDS[o] || '');
+      } else if (action === 'point') {
+        point();
+        beep(600, 0.06);
+        speak('точка');
+      } else if (action === 'equals') {
+        compute();
+        beep(880, 0.14);
+        speak(current === 'Ошибка' ? 'Ошибка' : 'равно ' + current);
+      } else if (action === 'clear') {
+        clearAll();
+        beep(320, 0.1);
+        speak('сброс');
+      }
     });
   });
 
-  // Регистрация service worker — нужна для установки как приложения
+  /* ================= ГОЛОСОВОЙ ВВОД ================= */
+
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let rec = null;
+  let listening = false;
+
+  if (SR) {
+    rec = new SR();
+    rec.lang = 'ru-RU';
+    rec.interimResults = false;
+    rec.maxAlternatives = 1;
+    rec.continuous = false;
+
+    rec.onstart = () => {
+      listening = true;
+      micBtn.classList.add('listening');
+      micBtn.textContent = '🎤 Слушаю…';
+      heardEl.textContent = 'Скажи, например: «двадцать пять умножить на четыре»';
+    };
+
+    rec.onend = () => {
+      listening = false;
+      micBtn.classList.remove('listening');
+      micBtn.textContent = '🎤 Сказать пример';
+    };
+
+    rec.onerror = (e) => {
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+        heardEl.textContent = 'Нет доступа к микрофону — разреши его для этого сайта в Chrome';
+      } else if (e.error === 'no-speech') {
+        heardEl.textContent = 'Речь не распознана, попробуй ещё раз';
+      } else {
+        heardEl.textContent = 'Не получилось распознать: ' + e.error;
+      }
+      speak('Не расслышала');
+    };
+
+    rec.onresult = (e) => {
+      const text = e.results[0][0].transcript;
+      handleVoice(text);
+    };
+  } else {
+    micBtn.disabled = true;
+    micBtn.textContent = '🎤 Голосовой ввод не поддерживается';
+  }
+
+  micBtn.addEventListener('click', () => {
+    if (!rec) return;
+    if (listening) { rec.stop(); return; }
+    try { speechSynthesis.cancel(); } catch (e) {}
+    try {
+      rec.start();
+    } catch (e) {
+      heardEl.textContent = 'Не удалось запустить микрофон, попробуй ещё раз';
+    }
+  });
+
+  /* ---------- Числа словами ---------- */
+
+  const NUMBER_WORDS = {
+    'ноль': 0, 'нуль': 0,
+    'один': 1, 'одна': 1, 'одно': 1, 'два': 2, 'две': 2, 'три': 3, 'четыре': 4,
+    'пять': 5, 'шесть': 6, 'семь': 7, 'восемь': 8, 'девять': 9,
+    'десять': 10, 'одиннадцать': 11, 'двенадцать': 12, 'тринадцать': 13,
+    'четырнадцать': 14, 'пятнадцать': 15, 'шестнадцать': 16, 'семнадцать': 17,
+    'восемнадцать': 18, 'девятнадцать': 19,
+    'двадцать': 20, 'тридцать': 30, 'сорок': 40, 'пятьдесят': 50,
+    'шестьдесят': 60, 'семьдесят': 70, 'восемьдесят': 80, 'девяносто': 90,
+    'сто': 100, 'двести': 200, 'триста': 300, 'четыреста': 400,
+    'пятьсот': 500, 'шестьсот': 600, 'семьсот': 700, 'восемьсот': 800, 'девятьсот': 900,
+    'тысяча': 1000
+  };
+
+  /* ---------- Разбор фразы в выражение ---------- */
+
+  function parseCommand(raw) {
+    let t = String(raw).toLowerCase().replace(/ё/g, 'е');
+
+    // всё после «равно» отбрасываем
+    t = t.replace(/\s+(равно|равняется)[\s\S]*$/, ' ');
+
+    // операции: сначала словосочетания
+    t = t
+      .replace(/умножить\s+на/g, ' * ')
+      .replace(/помножить\s+на/g, ' * ')
+      .replace(/разделить\s+на/g, ' / ')
+      .replace(/поделить\s+на/g, ' / ')
+      .replace(/делить\s+на/g, ' / ')
+      .replace(/умножить/g, ' * ')
+      .replace(/помножить/g, ' * ')
+      .replace(/разделить/g, ' / ')
+      .replace(/поделить/g, ' / ')
+      .replace(/делить/g, ' / ')
+      .replace(/плюс/g, ' + ')
+      .replace(/прибавить/g, ' + ')
+      .replace(/сложить/g, ' + ')
+      .replace(/минус/g, ' - ')
+      .replace(/отнять/g, ' - ')
+      .replace(/вычесть/g, ' - ')
+      .replace(/запятая/g, ' . ');
+
+    // оставляем только буквы, цифры, знаки операций и точку
+    t = t.replace(/[^a-zа-я0-9+\-*/. ]/g, ' ');
+
+    const words = t.split(/\s+/).filter(Boolean);
+    const tokens = [];
+
+    let intPart = 0;
+    let fracStr = null;
+    let hasNumber = false;
+
+    const pushNumber = () => {
+      if (!hasNumber) return;
+      let val = intPart;
+      if (fracStr !== null) {
+        const fracDigits = fracStr === '' ? '0' : fracStr;
+        val = parseFloat(String(intPart) + '.' + fracDigits);
+      }
+      tokens.push(val);
+      intPart = 0;
+      fracStr = null;
+      hasNumber = false;
+    };
+
+    for (const w of words) {
+      if (/^\d+$/.test(w)) {
+        const v = parseInt(w, 10);
+        if (fracStr !== null) fracStr += String(v);
+        else intPart += v;
+        hasNumber = true;
+      } else if (Object.prototype.hasOwnProperty.call(NUMBER_WORDS, w)) {
+        const v = NUMBER_WORDS[w];
+        if (fracStr !== null) fracStr += String(v);
+        else intPart += v;
+        hasNumber = true;
+      } else if (w === '.') {
+        if (hasNumber && fracStr === null) fracStr = '';
+      } else if (w === '+' || w === '-' || w === '*' || w === '/') {
+        pushNumber();
+        tokens.push(w);
+      }
+      // остальные слова («сколько», «будет», «посчитай») просто игнорируем
+    }
+    pushNumber();
+
+    return tokens;
+  }
+
+  /* ---------- Вычисление выражения с приоритетом ---------- */
+
+  function evaluateTokens(tokens) {
+    if (!tokens.length) return null;
+    if (tokens.length % 2 === 0) return null;
+
+    for (let i = 0; i < tokens.length; i++) {
+      if (i % 2 === 0 && typeof tokens[i] !== 'number') return null;
+      if (i % 2 === 1 && typeof tokens[i] !== 'string') return null;
+    }
+
+    const vals = [tokens[0]];
+    const ops = [];
+
+    for (let i = 1; i < tokens.length; i += 2) {
+      const o = tokens[i];
+      const v = tokens[i + 1];
+
+      if (o === '*' || o === '/') {
+        const a = vals[vals.length - 1];
+        if (o === '/' && v === 0) return NaN;
+        vals[vals.length - 1] = o === '*' ? a * v : a / v;
+      } else {
+        ops.push(o);
+        vals.push(v);
+      }
+    }
+
+    let res = vals[0];
+    for (let i = 0; i < ops.length; i++) {
+      res = ops[i] === '+' ? res + vals[i + 1] : res - vals[i + 1];
+    }
+    return res;
+  }
+
+  /* ---------- Обработка голосовой команды ---------- */
+
+  function handleVoice(text) {
+    heardEl.textContent = 'Услышано: «' + text + '»';
+
+    if (/(очист|сброс|сбрось|стереть|обнул)/.test(text.toLowerCase())) {
+      clearAll();
+      heardEl.textContent = 'Услышано: «' + text + '» — сброс';
+      beep(320, 0.1);
+      speak('Сброшено');
+      return;
+    }
+
+    const tokens = parseCommand(text);
+    const result = evaluateTokens(tokens);
+
+    if (result === null) {
+      heardEl.textContent = 'Услышано: «' + text + '» — не поняла выражение';
+      speak('Не поняла выражение');
+      return;
+    }
+
+    if (!Number.isFinite(result)) {
+      current = 'Ошибка';
+      previous = null; op = null; fresh = true;
+      update();
+      heardEl.textContent = 'Услышано: «' + text + '» — деление на ноль';
+      speak('Ошибка, деление на ноль');
+      return;
+    }
+
+    const rounded = Math.round(result * 1e10) / 1e10;
+    current = String(rounded);
+    previous = null; op = null; fresh = true;
+    update();
+    beep(880, 0.14);
+    speak('Равно ' + rounded);
+  }
+
+  /* ================= ПЕРЕКЛЮЧАТЕЛИ ================= */
+
+  soundBtn.addEventListener('click', () => {
+    soundOn = !soundOn;
+    soundBtn.classList.toggle('on', soundOn);
+    soundBtn.textContent = soundOn ? '🔊 Звук вкл' : '🔇 Звук выкл';
+    if (soundOn) beep(700, 0.08);
+  });
+
+  voiceBtn.addEventListener('click', () => {
+    voiceOn = !voiceOn;
+    voiceBtn.classList.toggle('on', voiceOn);
+    voiceBtn.textContent = voiceOn ? '🗣 Голос вкл' : '🔇 Голос выкл';
+    if (voiceOn) speak('Голос включён');
+    else if (canSpeak) speechSynthesis.cancel();
+  });
+
+  /* ================= УСТАНОВКА ПРИЛОЖЕНИЯ ================= */
+
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('sw.js').catch(() => {});
     });
   }
 
-  // Кнопка «Установить приложение»
   const installBtn = document.getElementById('install');
   let deferredPrompt = null;
 

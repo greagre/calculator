@@ -37,6 +37,19 @@ button.key.on{outline:2px solid #ffd166;outline-offset:1px}
 .tools button{background:#2b2d26;color:#ddd8c9;border:1px solid #45473c;border-radius:9px;padding:10px;font-size:12px;font-family:inherit}
 .tools button.on{background:#2c4a33;border-color:#5f9d6f;color:#c9f5d4}
 .hint{margin-top:8px;font-size:12px;color:#8f9a8a;line-height:1.4;min-height:16px}
+.mem{margin-top:10px;background:#1e2119;border:1px solid #383b30;border-radius:10px;padding:10px}
+.mem .lbl{color:#8f9a8a;font-size:11px;letter-spacing:1px;margin-bottom:8px}
+.proglist{display:flex;flex-direction:column;gap:6px;margin-bottom:8px;max-height:190px;overflow-y:auto}
+.proglist .empty{font-size:12px;color:#75806f;line-height:1.4;padding:2px 2px 6px}
+.progitem{display:flex;align-items:center;gap:6px;background:#262a22;border:1px solid #3a3e33;border-radius:8px;padding:6px 8px;font-size:12px;color:#d8d3c2}
+.progitem .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.progitem .st{font-size:10px;color:#7d8877;margin-left:4px}
+.progitem button{background:#3f3f39;border:none;border-radius:6px;color:#e9e6db;font-size:12px;padding:5px 9px;font-family:inherit}
+.progitem button.del{background:#5b2f2b;color:#ffd6cf}
+.memrow{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+.memrow button{background:#2b2d26;color:#ddd8c9;border:1px solid #45473c;border-radius:9px;padding:10px;font-size:12px;font-family:inherit}
+.memrow button.prim{background:#2f5d8a;color:#fff;border-color:#3f6f9e}
+.memnote{margin-top:8px;font-size:11px;color:#75806f;line-height:1.4}
 .help{margin-top:10px;background:#1e2119;border:1px solid #383b30;border-radius:10px;padding:12px;font-size:13px;line-height:1.5;color:#cfcbbc;display:none}
 .help h3{margin:10px 0 4px;font-size:13px;color:#a9e8b8}
 .help p{margin:4px 0}
@@ -64,15 +77,34 @@ button.key.on{outline:2px solid #ffd166;outline-offset:1px}
     <button id="btnReset">⏻ Сброс</button>
   </div>
   <div class="hint" id="hint">RPN: сначала число, затем В↑ и второе число, потом операция. Например 5 В↑ 3 + → 8.</div>
+
+  <div class="mem">
+    <div class="lbl">ПРОГРАММЫ: ПАМЯТЬ И ФАЙЛЫ</div>
+    <div class="proglist" id="progList"></div>
+    <div class="memrow">
+      <button id="btnSaveProg" class="prim">💾 Сохранить программу</button>
+      <button id="btnImportFile">⬆ Загрузить файл</button>
+      <button id="btnExportJson">⬇ Файл JSON</button>
+      <button id="btnExportTxt">⬇ Файл TXT</button>
+    </div>
+    <div class="memnote">Список хранится в памяти браузера на этом телефоне. Файлы JSON/TXT сохраняются в «Загрузки» — их можно перенести на другое устройство и загрузить обратно.</div>
+    <input type="file" id="fileInput" accept=".json,.txt,application/json,text/plain" style="display:none">
+  </div>
+
   <div class="help" id="help">
     <h3>Как считать</h3>
     <p>Обратная польская запись: <code>5 В↑ 3 +</code> даёт 8. Клавиша <code>В↑</code> разделяет числа, <code>↔</code> меняет X и Y, <code>F◯</code> прокручивает стек.</p>
     <h3>Регистры</h3>
     <p><code>x→П</code> записывает X в регистр, <code>П→X</code> вызывает регистр. Доступны 14: 0–9, a, b, c, d — как в Б3-34.</p>
     <h3>Программирование</h3>
-    <p>Нажми <code>f</code>, затем <code>ПРГ</code> — калькулятор перейдёт в режим ввода программы. Каждое нажатие клавиши пишет её двузначный код в память (98 шагов, адреса 00–97). Команды переходов <code>БП</code>, <code>ПП</code>, <code>ПП</code>, условия <code>x&lt;0</code>, <code>x=0</code>, <code>x≥0</code>, <code>x≠0</code> и циклы <code>L0</code>–<code>L3</code> занимают две ячейки: сначала код, потом адрес.</p>
+    <p>Нажми <code>f</code>, затем <code>ПРГ</code> — калькулятор перейдёт в режим ввода программы. Каждое нажатие клавиши пишет её двузначный код в память (98 шагов, адреса 00–97). Команды переходов <code>БП</code>, <code>ПП</code>, условия <code>x&lt;0</code>, <code>x=0</code>, <code>x≥0</code>, <code>x≠0</code> и циклы <code>L0</code>–<code>L3</code> занимают две ячейки: сначала код, потом адрес.</p>
     <p>Как в оригинале: условный переход срабатывает, когда условие <b>не</b> выполняется, а цикл L переходит, пока содержимое регистра <b>не равно</b> нулю.</p>
     <p><code>С/П</code> — пуск и останов, <code>ПП</code> в режиме АВТ — один шаг, <code>В/О</code> — на адрес 00. Вернуться к вычислениям: <code>f</code> → <code>АВТ</code>.</p>
+    <h3>Сохранение программ</h3>
+    <p>Программа и регистры <b>сохраняются сами</b> в памяти браузера после каждого изменения — при следующем открытии всё на месте.</p>
+    <p><code>💾 Сохранить программу</code> — даёт программе имя и кладёт её в список. В списке <code>▶</code> загружает программу в память калькулятора, <code>✕</code> — удаляет из списка.</p>
+    <p><code>⬇ Файл JSON</code> — все программы и текущее состояние одним файлом, удобно для переноса и резервной копии. <code>⬇ Файл TXT</code> — читаемый листинг с кодами и названиями команд. <code>⬆ Загрузить файл</code> — принимает оба формата: JSON подхватывает всё, TXT — коды по строкам вида <code>00: 60</code>.</p>
+    <p>Файлы уходят в папку «Загрузки» телефона (в Chrome — меню ⋮ → «Загрузки»). Очистка данных сайта в браузере удаляет и список программ — поэтому важное лучше дублировать файлом JSON.</p>
     <h3>Голос</h3>
     <p>Кнопка «Сказать» понимает фразы вроде «двадцать четыре умножить на шесть» и сразу выполняет их в RPN.</p>
     <p style="color:#8f9a8a">Это калькулятор в логике Б3-34, а не побитовая копия микросхемы: арифметика современная, разрядность вывода приближена к 8+2.</p>
@@ -170,6 +202,36 @@ function codeStr(c){
   var hex = '0123456789-LCГE ';
   return hex[(c >> 4) & 15] + hex[c & 15];
 }
+function hex2(c){
+  var s = (c & 255).toString(16).toUpperCase();
+  return s.length < 2 ? '0' + s : s;
+}
+function p2(n){
+  return (n < 10 ? '0' : '') + n;
+}
+
+var REG_NAMES = ['0','1','2','3','4','5','6','7','8','9','a','b','c','d'];
+
+var CMD_NAMES = {
+  0x0A:'·', 0x0B:'/-/', 0x0C:'ВП', 0x0D:'Cx', 0x0E:'В↑', 0x0F:'Вx',
+  0x10:'+', 0x11:'−', 0x12:'×', 0x13:'÷', 0x14:'↔',
+  0x15:'10^x', 0x16:'e^x', 0x17:'lg', 0x18:'ln',
+  0x19:'arcsin', 0x1A:'arccos', 0x1B:'arctg', 0x1C:'sin', 0x1D:'cos', 0x1E:'tg',
+  0x20:'π', 0x21:'√', 0x22:'x²', 0x23:'1/x', 0x24:'x^y', 0x25:'F◯',
+  0x50:'С/П', 0x51:'БП', 0x52:'В/О', 0x53:'ПП', 0x54:'НОП',
+  0x57:'x≠0', 0x58:'L2', 0x59:'x≥0', 0x5A:'L3', 0x5B:'L1', 0x5C:'x<0', 0x5D:'L0', 0x5E:'x=0'
+};
+function cmdName(c){
+  if(c >= 0 && c <= 9) return String(c);
+  if(CMD_NAMES[c]) return CMD_NAMES[c];
+  if(c >= 0x40 && c <= 0x4D) return 'X→П ' + REG_NAMES[c & 15];
+  if(c >= 0x60 && c <= 0x6D) return 'П→X ' + REG_NAMES[c & 15];
+  if(c >= 0x80 && c <= 0x8D) return 'К БП ' + REG_NAMES[c & 15];
+  if(c >= 0xA0 && c <= 0xAD) return 'К ПП ' + REG_NAMES[c & 15];
+  if(c >= 0xB0 && c <= 0xBD) return 'К X→П ' + REG_NAMES[c & 15];
+  if(c >= 0xD0 && c <= 0xDD) return 'К П→X ' + REG_NAMES[c & 15];
+  return '?';
+}
 
 /* ---------- стек ---------- */
 function shiftUp(){
@@ -209,6 +271,7 @@ function render(){
     '<div><b>Z</b> ' + fmtNum(ST.Z) + '</div>' +
     '<div><b>T</b> ' + fmtNum(ST.T) + '</div>' +
     '<div><b>X1</b> ' + fmtNum(ST.X1) + '</div>';
+  scheduleSave();
 }
 
 /* ---------- клавиатура ---------- */
@@ -324,8 +387,6 @@ function drawPad(){
   });
 }
 
-var REG_NAMES = ['0','1','2','3','4','5','6','7','8','9','a','b','c','d'];
-
 function drawRegPick(mode){
   panelEl.style.display = 'block';
   panelEl.innerHTML = '<div class="lbl">ВЫБЕРИ РЕГИСТР</div><div class="regpick"></div>';
@@ -370,8 +431,7 @@ function startTyping(){
 
 function typeDigit(d){
   startTyping();
-  if(ST.exp) ST.input += String(d);
-  else ST.input += String(d);
+  ST.input += String(d);
   var v = parseFloat(ST.input);
   ST.X = isNaN(v) ? 0 : v;
 }
@@ -497,7 +557,6 @@ function modAddr(v, r){
 function runStep(){
   var code = ST.prog[ST.ip];
   var hi = (code >> 4) & 15, lo = code & 15;
-  var next = code;
   var addr = ST.prog[(ST.ip + 1) % 98];
 
   if(code === 0x50){ ST.run = false; clickOk(); say('стоп. ' + speechNum(ST.X)); return 'stop'; }
@@ -609,8 +668,7 @@ function onKey(k){
       if(k.jump){ writeJump(k.c); }
       else { writeStep(k.c); hint('Код ' + codeStr(k.c)); }
     }else{
-      if(k.c === 0x0D || k.c === 0x0E || k.c === 0x20){ execCode(k.c); }
-      else { execCode(k.c); }
+      execCode(k.c);
       if(!ST.err && (k.c >= 0x10 && k.c <= 0x24)) say(speechNum(ST.X));
     }
     ST.layer = 'main'; drawPad(); render();
@@ -694,6 +752,419 @@ function onKey(k){
   }
 }
 
+/* ---------- память: автосохранение ---------- */
+var LS_STATE = 'b334.state.v1';
+var LS_LIB = 'b334.programs.v1';
+var saveTimer = null;
+
+function scheduleSave(){
+  if(saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveStateNow, 250);
+}
+
+function saveStateNow(){
+  try{
+    localStorage.setItem(LS_STATE, JSON.stringify({
+      prog: ST.prog.slice(0),
+      R: ST.R.slice(0, 14),
+      sound: ST.soundOn,
+      voice: ST.voiceOn
+    }));
+  }catch(e){ /* память браузера недоступна — тихо пропускаем */ }
+}
+
+function loadState(){
+  try{
+    var raw = localStorage.getItem(LS_STATE);
+    if(!raw) return false;
+    var o = JSON.parse(raw);
+    if(!o) return false;
+    if(Array.isArray(o.prog)){
+      for(var i = 0; i < 98; i++){
+        ST.prog[i] = typeof o.prog[i] === 'number' ? (o.prog[i] & 255) : 0x54;
+      }
+    }
+    if(Array.isArray(o.R)){
+      for(var j = 0; j < 14; j++){
+        ST.R[j] = typeof o.R[j] === 'number' ? o.R[j] : 0;
+      }
+    }
+    if(typeof o.sound === 'boolean') ST.soundOn = o.sound;
+    if(typeof o.voice === 'boolean') ST.voiceOn = o.voice;
+    return true;
+  }catch(e){ return false; }
+}
+
+/* ---------- память: библиотека программ ---------- */
+function getLib(){
+  try{
+    var raw = localStorage.getItem(LS_LIB);
+    var arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr : [];
+  }catch(e){ return []; }
+}
+
+function setLib(arr){
+  try{
+    localStorage.setItem(LS_LIB, JSON.stringify(arr));
+    return true;
+  }catch(e){
+    hint('Не удалось записать в память браузера — она переполнена или недоступна');
+    clickErr();
+    return false;
+  }
+}
+
+function normProg(arr){
+  var p = new Array(98).fill(0x54);
+  if(Array.isArray(arr)){
+    for(var i = 0; i < 98; i++){
+      if(typeof arr[i] === 'number' && isFinite(arr[i])){
+        p[i] = Math.max(0, Math.min(255, Math.round(arr[i])));
+      }
+    }
+  }
+  return p;
+}
+
+function programHasData(prog){
+  for(var i = 0; i < 98; i++){ if(prog[i] !== 0x54) return true; }
+  return false;
+}
+
+function lastStep(prog){
+  var last = -1;
+  for(var i = 0; i < 98; i++){ if(prog[i] !== 0x54) last = i; }
+  return last;
+}
+
+function renderLib(){
+  var box = document.getElementById('progList');
+  if(!box) return;
+  var lib = getLib();
+  box.innerHTML = '';
+  if(!lib.length){
+    var e = document.createElement('div');
+    e.className = 'empty';
+    e.textContent = 'Пока пусто. Набери программу в режиме ПРГ и нажми «Сохранить программу» — она останется здесь.';
+    box.appendChild(e);
+    return;
+  }
+  lib.forEach(function(item, idx){
+    var row = document.createElement('div');
+    row.className = 'progitem';
+
+    var nm = document.createElement('span');
+    nm.className = 'nm';
+    var len = lastStep(normProg(item.prog)) + 1;
+    nm.textContent = item.name;
+    var st = document.createElement('span');
+    st.className = 'st';
+    st.textContent = len + ' ш.';
+    nm.appendChild(st);
+
+    var bLoad = document.createElement('button');
+    bLoad.textContent = '▶';
+    bLoad.addEventListener('click', function(){ loadFromLib(idx); });
+
+    var bDel = document.createElement('button');
+    bDel.className = 'del';
+    bDel.textContent = '✕';
+    bDel.addEventListener('click', function(){ deleteFromLib(idx); });
+
+    row.appendChild(nm);
+    row.appendChild(bLoad);
+    row.appendChild(bDel);
+    box.appendChild(row);
+  });
+}
+
+function saveCurrentProgram(){
+  if(!programHasData(ST.prog)){
+    hint('Программа пуста: сначала набери её в режиме ПРГ');
+    clickErr();
+    return;
+  }
+  var lib = getLib();
+  var def = 'Программа ' + (lib.length + 1);
+  var name = window.prompt('Название программы:', def);
+  if(name === null) return;
+  name = String(name).trim().slice(0, 40) || def;
+
+  var found = -1;
+  for(var i = 0; i < lib.length; i++){ if(lib[i].name === name){ found = i; break; } }
+  var item = { name: name, prog: ST.prog.slice(0), updated: new Date().toISOString() };
+  if(found >= 0) lib[found] = item; else lib.unshift(item);
+
+  if(setLib(lib)){
+    renderLib();
+    hint('Сохранено в память браузера: «' + name + '» (' + (lastStep(ST.prog) + 1) + ' шагов)');
+    clickOk();
+    say('сохранено');
+  }
+}
+
+function loadFromLib(idx){
+  var lib = getLib();
+  if(!lib[idx]) return;
+  ST.prog = normProg(lib[idx].prog);
+  ST.ip = 0;
+  ST.mode = 'AUT';
+  ST.err = false;
+  drawPad();
+  render();
+  hint('Программа «' + lib[idx].name + '» загружена в память калькулятора. Запуск: f → АВТ, В/О, С/П');
+  clickOk();
+  say('программа загружена');
+}
+
+function deleteFromLib(idx){
+  var lib = getLib();
+  if(!lib[idx]) return;
+  var name = lib[idx].name;
+  if(!window.confirm('Удалить программу «' + name + '» из списка?')) return;
+  lib.splice(idx, 1);
+  if(setLib(lib)){
+    renderLib();
+    hint('Удалено из списка: «' + name + '»');
+    clickKey();
+  }
+}
+
+/* ---------- память: файлы ---------- */
+function stamp(){
+  var d = new Date();
+  return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()) + '_' + p2(d.getHours()) + p2(d.getMinutes());
+}
+
+function downloadFile(name, text, mime){
+  try{
+    var blob = new Blob([text], { type: (mime || 'text/plain') + ';charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function(){
+      if(a.parentNode) a.parentNode.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 2000);
+    return true;
+  }catch(e){
+    hint('Браузер не дал сохранить файл: ' + (e.message || 'ошибка'));
+    clickErr();
+    return false;
+  }
+}
+
+function exportJSON(){
+  var data = {
+    format: 'b3-34',
+    version: 1,
+    savedAt: new Date().toISOString(),
+    registers: ST.R.slice(0, 14),
+    settings: { sound: ST.soundOn, voice: ST.voiceOn, deg: ST.deg },
+    current: {
+      name: 'Текущая программа',
+      length: lastStep(ST.prog) + 1,
+      prog: ST.prog.slice(0)
+    },
+    programs: getLib().map(function(p){
+      return { name: p.name, updated: p.updated || '', prog: normProg(p.prog) };
+    })
+  };
+  if(downloadFile('b3-34_' + stamp() + '.json', JSON.stringify(data, null, 2), 'application/json')){
+    hint('Файл JSON сохранён в «Загрузки»: ' + data.programs.length + ' программ + текущая');
+    clickOk();
+    say('файл джейсон сохранён');
+  }
+}
+
+function listProgram(name, prog){
+  var out = ['=== ' + name + ' ==='];
+  var last = lastStep(prog);
+  if(last < 0){
+    out.push('(программа пуста)');
+  }else{
+    for(var i = 0; i <= last; i++){
+      out.push(p2(i) + ': ' + hex2(prog[i]) + '   ' + cmdName(prog[i]));
+    }
+  }
+  out.push('');
+  return out.join('\n');
+}
+
+function exportTXT(){
+  var parts = [];
+  parts.push('ЭЛЕКТРОНИКА Б3-34 — листинг программ');
+  parts.push('сохранено: ' + new Date().toLocaleString('ru-RU'));
+  parts.push('формат строки: АДРЕС: КОД  НАЗВАНИЕ КОМАНДЫ');
+  parts.push('');
+  parts.push(listProgram('Текущая программа', ST.prog));
+  getLib().forEach(function(p){
+    parts.push(listProgram(p.name, normProg(p.prog)));
+  });
+  if(downloadFile('b3-34_' + stamp() + '.txt', parts.join('\n'), 'text/plain')){
+    hint('Файл TXT сохранён в «Загрузки»');
+    clickOk();
+    say('файл тэ икс тэ сохранён');
+  }
+}
+
+function importJSON(o){
+  if(!o || typeof o !== 'object'){
+    hint('В файле нет данных программы');
+    clickErr();
+    return;
+  }
+  var lib = getLib();
+  var added = 0;
+
+  if(Array.isArray(o.programs)){
+    o.programs.forEach(function(p){
+      if(!p || !Array.isArray(p.prog)) return;
+      var name = String(p.name || 'Без названия').slice(0, 40);
+      var found = -1;
+      for(var i = 0; i < lib.length; i++){ if(lib[i].name === name){ found = i; break; } }
+      var item = { name: name, prog: normProg(p.prog), updated: p.updated || new Date().toISOString() };
+      if(found >= 0) lib[found] = item; else lib.unshift(item);
+      added++;
+    });
+  }
+
+  var cur = null;
+  if(o.current && Array.isArray(o.current.prog)) cur = o.current.prog;
+  else if(Array.isArray(o.prog)) cur = o.prog;
+
+  if(cur){
+    ST.prog = normProg(cur);
+    ST.ip = 0;
+    ST.mode = 'AUT';
+    ST.err = false;
+  }
+  if(Array.isArray(o.registers)){
+    for(var j = 0; j < 14; j++){
+      if(typeof o.registers[j] === 'number') ST.R[j] = o.registers[j];
+    }
+  }
+
+  setLib(lib);
+  drawPad();
+  renderLib();
+  render();
+  hint('Загружено из файла: программ — ' + added + (cur ? ', текущая программа в памяти' : ''));
+  clickOk();
+  say('файл загружен');
+}
+
+function importTXT(text){
+  var lines = text.split(/\r?\n/);
+  var sections = [];
+  var cur = { name: 'Импорт', prog: new Array(98).fill(0x54) };
+  var any = false;
+  var pendingJump = -1;
+
+  for(var i = 0; i < lines.length; i++){
+    var line = lines[i];
+    var head = line.match(/^\s*===\s*(.+?)\s*===\s*$/);
+    if(head){
+      sections.push(cur);
+      cur = { name: String(head[1]).slice(0, 40), prog: new Array(98).fill(0x54) };
+      any = false;
+      continue;
+    }
+    var m = line.match(/^\s*(\d{1,2})\s*[:.\-]\s*([0-9A-Fa-f]{2})\b/);
+    if(m){
+      var idx = parseInt(m[1], 10);
+      if(idx >= 0 && idx < 98){
+        cur.prog[idx] = parseInt(m[2], 16) & 255;
+        any = true;
+        pendingJump = idx;
+      }
+      continue;
+    }
+    var m2 = line.match(/^\s*(\d{1,2})\s*[:.\-]\s*([0-9A-Za-zА-Яа-я\-])\s*$/);
+    if(m2){
+      var idx2 = parseInt(m2[1], 10);
+      var sym = m2[2];
+      var table = '0123456789-LCГE ';
+      var pos = table.indexOf(sym);
+      if(pos < 0) pos = table.indexOf(sym.toUpperCase());
+      if(idx2 >= 0 && idx2 < 98 && pos >= 0){
+        cur.prog[idx2] = pos;
+        any = true;
+      }
+    }
+  }
+  sections.push(cur);
+
+  var useful = sections.filter(function(s){ return lastStep(s.prog) >= 0; });
+  if(!useful.length){
+    hint('В файле не нашлось кодов программы (строки вида «00: 60»)');
+    clickErr();
+    return;
+  }
+
+  if(useful.length === 1){
+    ST.prog = useful[0].prog.slice(0);
+    ST.ip = 0;
+    ST.mode = 'AUT';
+    ST.err = false;
+    drawPad();
+    render();
+    hint('Программа из TXT загружена в память (' + (lastStep(ST.prog) + 1) + ' шагов)');
+    clickOk();
+    say('программа загружена');
+    return;
+  }
+
+  var lib = getLib();
+  var added = 0;
+  useful.forEach(function(s){
+    if(/текущая/i.test(s.name)){
+      ST.prog = s.prog.slice(0);
+      ST.ip = 0;
+      ST.mode = 'AUT';
+    }else{
+      lib.unshift({ name: s.name, prog: s.prog, updated: new Date().toISOString() });
+      added++;
+    }
+  });
+  setLib(lib);
+  drawPad();
+  renderLib();
+  render();
+  hint('Из TXT добавлено программ: ' + added + '; текущая программа обновлена');
+  clickOk();
+  say('файл загружен');
+}
+
+function importFile(file){
+  if(!file) return;
+  var reader = new FileReader();
+  reader.onload = function(){
+    var text = String(reader.result || '');
+    var isJson = /\.json$/i.test(file.name) || /^\s*\{/.test(text);
+    if(isJson){
+      try{
+        importJSON(JSON.parse(text));
+      }catch(e){
+        hint('Файл JSON не разобран: ' + (e.message || 'ошибка'));
+        clickErr();
+      }
+    }else{
+      importTXT(text);
+    }
+  };
+  reader.onerror = function(){
+    hint('Не удалось прочитать файл');
+    clickErr();
+  };
+  reader.readAsText(file, 'utf-8');
+}
+
 /* ---------- голосовой ввод ---------- */
 var NUMS = {
   'ноль':0,'нуль':0,'один':1,'одна':1,'два':2,'две':2,'три':3,'четыре':4,'пять':5,'шесть':6,'семь':7,'восемь':8,'девять':9,
@@ -730,9 +1201,6 @@ function parseSpoken(text){
     if(w === 'х' || w === 'x' || w === 'икс' || w === 'звездочка'){
       pushNum(); tokens.push('*'); lastArabic = false; continue;
     }
-    if(w === 'делить' || w === 'разделить'){
-      pushNum(); tokens.push('/'); lastArabic = false; continue;
-    }
     if(w === '+' || w === '-' || w === '*' || w === '/'){ pushNum(); tokens.push(w); lastArabic = false; continue; }
     if(/^\d+$/.test(w)){
       if(has || dec){ pushNum(); }
@@ -741,15 +1209,7 @@ function parseSpoken(text){
     if(NUMS.hasOwnProperty(w)){
       var v = NUMS[w];
       if(lastArabic && (has || dec)){ pushNum(); }
-      if(v >= 100 || v === 20 || v === 30 || v === 40 || v === 50 || v === 60 || v === 70 || v === 80 || v === 90){
-        acc += v; has = true;
-      }else if(v === 10 && has && acc % 100 >= 20 && acc % 100 < 30){
-        acc += 0;
-      }else if(v < 10 && has){
-        acc += v; has = true;
-      }else{
-        acc += v; has = true;
-      }
+      acc += v; has = true;
       lastArabic = false; continue;
     }
   }
@@ -844,20 +1304,30 @@ function resetAll(){
   ST.typing = false; ST.input = ''; ST.exp = false; ST.err = false;
   panelEl.style.display = 'none';
   drawPad(); render();
-  hint('Сброс: память и программа очищены');
+  hint('Сброс: память и текущая программа очищены (сохранённые в списке остались)');
 }
 
 /* ---------- кнопки инструментов ---------- */
+function syncToggles(){
+  var bs = document.getElementById('btnSound');
+  bs.className = ST.soundOn ? 'on' : '';
+  bs.textContent = ST.soundOn ? '🔊 Звук: вкл' : '🔇 Звук: выкл';
+
+  var bv = document.getElementById('btnVoice');
+  bv.className = ST.voiceOn ? 'on' : '';
+  bv.textContent = ST.voiceOn ? '🗣 Голос: вкл' : '🔇 Голос: выкл';
+}
+
 document.getElementById('btnSound').addEventListener('click', function(){
   ST.soundOn = !ST.soundOn;
-  this.className = ST.soundOn ? 'on' : '';
-  this.textContent = ST.soundOn ? '🔊 Звук: вкл' : '🔇 Звук: выкл';
+  syncToggles();
+  saveStateNow();
   if(ST.soundOn) clickOk();
 });
 document.getElementById('btnVoice').addEventListener('click', function(){
   ST.voiceOn = !ST.voiceOn;
-  this.className = ST.voiceOn ? 'on' : '';
-  this.textContent = ST.voiceOn ? '🗣 Голос: вкл' : '🔇 Голос: выкл';
+  syncToggles();
+  saveStateNow();
   if(ST.voiceOn) say('голос включён');
 });
 document.getElementById('btnMic').addEventListener('click', startVoice);
@@ -868,9 +1338,30 @@ document.getElementById('btnHelp').addEventListener('click', function(){
 });
 document.getElementById('btnReset').addEventListener('click', resetAll);
 
+document.getElementById('btnSaveProg').addEventListener('click', saveCurrentProgram);
+document.getElementById('btnExportJson').addEventListener('click', exportJSON);
+document.getElementById('btnExportTxt').addEventListener('click', exportTXT);
+
+document.getElementById('btnImportFile').addEventListener('click', function(){
+  document.getElementById('fileInput').click();
+});
+document.getElementById('fileInput').addEventListener('change', function(){
+  var f = this.files && this.files[0];
+  if(f) importFile(f);
+  this.value = '';
+});
+
 /* ---------- старт ---------- */
-drawPad();
-render();
+(function initMem(){
+  var had = loadState();
+  syncToggles();
+  renderLib();
+  drawPad();
+  render();
+  if(had){
+    hint('Восстановлена последняя программа и регистры из памяти браузера');
+  }
+})();
 })();
 </script>
 </body>

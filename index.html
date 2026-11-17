@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Калькулятор</title>
+<style>
+  body {
+    margin: 0; min-height: 100vh; display: flex;
+    align-items: center; justify-content: center;
+    background: #1c1f26; font-family: system-ui, sans-serif;
+  }
+  .calc {
+    width: 300px; padding: 16px; border-radius: 20px;
+    background: #2a2f3a; box-shadow: 0 12px 30px rgba(0,0,0,.45);
+  }
+  #display {
+    width: 100%; box-sizing: border-box; padding: 16px 12px;
+    margin-bottom: 12px; border: none; border-radius: 12px;
+    background: #12151b; color: #fff; font-size: 32px;
+    text-align: right; letter-spacing: 1px;
+  }
+  .keys { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  button {
+    padding: 16px 0; border: none; border-radius: 12px;
+    background: #3a4150; color: #fff; font-size: 20px; cursor: pointer;
+    transition: background .15s, transform .05s;
+  }
+  button:active { transform: scale(.96); }
+  button:hover { background: #4a5265; }
+  .op { background: #2f6fff; }
+  .op:hover { background: #4b84ff; }
+  .eq { background: #22a06b; }
+  .eq:hover { background: #2ec07f; }
+  .clr { background: #d94747; }
+  .clr:hover { background: #ee5c5c; }
+</style>
+</head>
+<body>
+  <div class="calc">
+    <input id="display" value="0" readonly>
+    <div class="keys">
+      <button class="clr" data-action="clear">C</button>
+      <button data-action="point">.</button>
+      <button class="op" data-op="/">÷</button>
+      <button class="op" data-op="*">×</button>
+
+      <button data-digit="7">7</button>
+      <button data-digit="8">8</button>
+      <button data-digit="9">9</button>
+      <button class="op" data-op="-">−</button>
+
+      <button data-digit="4">4</button>
+      <button data-digit="5">5</button>
+      <button data-digit="6">6</button>
+      <button class="op" data-op="+">+</button>
+
+      <button data-digit="1">1</button>
+      <button data-digit="2">2</button>
+      <button data-digit="3">3</button>
+      <button class="eq" data-action="equals">=</button>
+
+      <button data-digit="0">0</button>
+    </div>
+  </div>
+
+<script>
+  const display = document.getElementById('display');
+  let current = '0';     // число на экране
+  let previous = null;   // первое число выражения
+  let op = null;         // выбранная операция
+  let fresh = false;     // следующий ввод начинает новое число
+
+  const update = () => { display.value = current; };
+
+  function digit(d) {
+    if (fresh) { current = '0'; fresh = false; }
+    current = current === '0' ? d : current + d;
+    update();
+  }
+
+  function point() {
+    if (fresh) { current = '0'; fresh = false; }
+    if (!current.includes('.')) current += '.';
+    update();
+  }
+
+  function chooseOp(nextOp) {
+    if (op !== null && !fresh) compute();
+    previous = parseFloat(current);
+    op = nextOp;
+    fresh = true;
+  }
+
+  function compute() {
+    if (op === null || previous === null) return;
+    const a = previous, b = parseFloat(current);
+    let r;
+    if (op === '+') r = a + b;
+    else if (op === '-') r = a - b;
+    else if (op === '*') r = a * b;
+    else r = b === 0 ? NaN : a / b;
+
+    current = Number.isFinite(r) ? String(Math.round(r * 1e10) / 1e10) : 'Ошибка';
+    previous = null;
+    op = null;
+    fresh = true;
+    update();
+  }
+
+  function clearAll() {
+    current = '0'; previous = null; op = null; fresh = false;
+    update();
+  }
+
+  document.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const { digit: d, op: o, action } = btn.dataset;
+      if (d !== undefined) digit(d);
+      else if (o) chooseOp(o);
+      else if (action === 'point') point();
+      else if (action === 'equals') compute();
+      else if (action === 'clear') clearAll();
+    });
+  });
+</script>
+</body>
+</html>

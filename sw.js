@@ -1,7 +1,7 @@
 // Service worker: кэширует приложение, чтобы работало и без интернета.
 // Страница загружается сначала из сети (так обновления подхватываются сразу),
 // а если сети нет — из кэша.
-const CACHE = 'calculator-v2';
+const CACHE = 'calculator-v3';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon.svg'];
 
 self.addEventListener('install', (event) => {

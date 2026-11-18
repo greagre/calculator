@@ -7,6 +7,11 @@
      • подписи команд справа.
    База не меняется: состояние читается из localStorage,
    импорт пишет состояние и перезагружает страницу.
+
+   v2: «Перед пуском» показывает только ВХОДНЫЕ регистры —
+   те, что читаются раньше, чем в них что-нибудь записали.
+   Рабочие регистры (счётчики, промежуточные) больше не лезут
+   в листинг. Регистры сохраняются вместе с программой в списке.
    ============================================================ */
 (function(){
 "use strict";
@@ -36,7 +41,9 @@ function nameOf(c){
   if(c >= 0x80 && c <= 0x8D) return 'К БП ' + REG[c & 15];
   if(c >= 0x90 && c <= 0x9D) return 'К x≥0 ' + REG[c & 15];
   if(c >= 0xA0 && c <= 0xAD) return 'К ПП ' + REG[c & 15];
+  if(c >= 0xB0 && c <= 0xBD) return 'К X→П ' + REG[c & 15];
   if(c >= 0xC0 && c <= 0xCD) return 'К x<0 ' + REG[c & 15];
+  if(c >= 0xD0 && c <= 0xDD) return 'К П→X ' + REG[c & 15];
   if(c >= 0xE0 && c <= 0xED) return 'К x=0 ' + REG[c & 15];
   return '?';
 }
@@ -112,25 +119,47 @@ function lastStep(prog){
   return last;
 }
 
-/* какие регистры программа читает — это и есть исходные данные */
-function regsRead(prog){
-  var last = lastStep(prog), skip = -1, seen = {}, order = [];
-  function add(r){
-    if(r >= 0 && r < 14 && !seen[r]){ seen[r] = 1; order.push(r); }
+/* ---------- какие регистры нужны ДО пуска ----------
+   Входной считается тот регистр, который читают раньше, чем в него
+   что-либо записали. Счётчики циклов и промежуточные ячейки
+   программа заполняет сама — в «Перед пуском» они не нужны. */
+function inputRegs(prog){
+  var last = lastStep(prog), skip = -1;
+  var written = {}, seenRead = {}, order = [];
+
+  function readAt(r){
+    if(r < 0 || r > 13) return;
+    if(seenRead[r]) return;
+    seenRead[r] = 1;
+    order.push({ r: r, input: !written[r] });
   }
+  function writeAt(r){
+    if(r < 0 || r > 13) return;
+    if(!seenRead[r]) written[r] = 1;
+  }
+
   for(var i = 0; i <= last; i++){
     if(i <= skip) continue;
     var c = prog[i];
     if(isJump(c)) skip = i + 2;
-    if(c >= 0x60 && c <= 0x6D) add(c & 15);                    /* П→X r */
-    else if(c >= 0x70 && c <= 0x7D) add(c & 15);               /* К x≠0 r */
-    else if(c >= 0x80 && c <= 0x8D) add(c & 15);               /* К БП r */
-    else if(c >= 0x90 && c <= 0x9D) add(c & 15);               /* К x≥0 r */
-    else if(c >= 0xA0 && c <= 0xAD) add(c & 15);               /* К ПП r */
-    else if(c >= 0xC0 && c <= 0xCD) add(c & 15);               /* К x<0 r */
-    else if(c >= 0xE0 && c <= 0xED) add(c & 15);               /* К x=0 r */
+
+    if(c >= 0x40 && c <= 0x4D) writeAt(c & 15);              /* X→П r  */
+    else if(c >= 0xB0 && c <= 0xBD) writeAt(c & 15);         /* К X→П r */
+    else if(c >= 0x60 && c <= 0x6D) readAt(c & 15);          /* П→X r  */
+    else if(c >= 0xD0 && c <= 0xDD) readAt(c & 15);          /* К П→X r */
+    else if(c >= 0x70 && c <= 0x7D) readAt(c & 15);          /* К x≠0 r */
+    else if(c >= 0x80 && c <= 0x8D) readAt(c & 15);          /* К БП r  */
+    else if(c >= 0x90 && c <= 0x9D) readAt(c & 15);          /* К x≥0 r */
+    else if(c >= 0xA0 && c <= 0xAD) readAt(c & 15);          /* К ПП r  */
+    else if(c >= 0xC0 && c <= 0xCD) readAt(c & 15);          /* К x<0 r */
+    else if(c >= 0xE0 && c <= 0xED) readAt(c & 15);          /* К x=0 r */
   }
-  return order;
+
+  var res = [];
+  for(var k = 0; k < order.length; k++){
+    if(order[k].input) res.push(order[k].r);
+  }
+  return res;
 }
 
 /* ожидаемый результат — если такая же программа есть в справочнике */
@@ -163,12 +192,12 @@ function listProgram(name, prog, regs){
     return out;
   }
 
-  var rd = regsRead(prog);
+  var rd = inputRegs(prog);
   if(rd.length){
     var parts = [];
     for(var q = 0; q < rd.length; q++){
       var r = rd[q];
-      parts.push('R' + REG[r] + ' = ' + numText(regs ? regs[r] : 0));
+      parts.push('R' + REG[r] + ' = ' + (regs ? numText(regs[r]) : '(не сохранены)'));
     }
     out.push('Перед пуском: ' + parts.join(', '));
   }else{
@@ -254,7 +283,8 @@ function exportTxt(){
 
     var lib = getLib();
     for(var i = 0; i < lib.length; i++){
-      parts.push(listProgram(lib[i].name, normProg(lib[i].prog), regs).join('\n'));
+      var itemRegs = Array.isArray(lib[i].regs) ? normRegs(lib[i].regs) : null;
+      parts.push(listProgram(lib[i].name, normProg(lib[i].prog), itemRegs).join('\n'));
     }
 
     if(download('b3-34_' + stamp() + '.txt', parts.join('\n'))){
@@ -355,7 +385,7 @@ function applyImport(secs){
     }
     var found = -1;
     for(var k = 0; k < lib.length; k++){ if(lib[k].name === s.name){ found = k; break; } }
-    var item = { name: s.name, prog: s.prog.slice(0), updated: new Date().toISOString() };
+    var item = { name: s.name, prog: s.prog.slice(0), regs: (s.regs || []).slice(0, 14), updated: new Date().toISOString() };
     if(found >= 0) lib[found] = item; else lib.unshift(item);
     added++;
   }
@@ -395,7 +425,12 @@ function importJson(o){
       var name = String(p.name || 'Без названия').slice(0, 40);
       var found = -1;
       for(var k = 0; k < lib.length; k++){ if(lib[k].name === name){ found = k; break; } }
-      var item = { name: name, prog: normProg(p.prog), updated: p.updated || new Date().toISOString() };
+      var item = {
+        name: name,
+        prog: normProg(p.prog),
+        regs: Array.isArray(p.regs) ? normRegs(p.regs) : null,
+        updated: p.updated || new Date().toISOString()
+      };
       if(found >= 0) lib[found] = item; else lib.unshift(item);
     }
     saveLib(lib);
@@ -471,9 +506,47 @@ function swapFileInput(){
   return true;
 }
 
+/* ---------- регистры вместе с программой ----------
+   Кнопку базы не подменяем: ждём, пока она запишет программу в список,
+   и дописываем к этой записи текущие регистры. Так «Перед пуском»
+   в TXT показывает те числа, которые были при сохранении. */
+function attachSaveHook(){
+  var btn = document.getElementById('btnSaveProg');
+  if(!btn) return;
+
+  btn.addEventListener('click', function(){
+    setTimeout(function(){
+      var st = getState();
+      if(!st) return;
+
+      var prog = normProg(st.prog);
+      var regs = normRegs(st.R);
+      var last = lastStep(prog);
+      if(last < 0) return;
+
+      var lib = getLib();
+      for(var i = 0; i < lib.length; i++){
+        var p = normProg(lib[i].prog);
+        if(lastStep(p) !== last) continue;
+
+        var same = true;
+        for(var j = 0; j <= last; j++){
+          if((p[j] & 255) !== (prog[j] & 255)){ same = false; break; }
+        }
+        if(same){
+          lib[i].regs = regs.slice(0);
+          saveLib(lib);
+          break;
+        }
+      }
+    }, 400);
+  });
+}
+
 function init(){
   swapButton('btnExportTxt', exportTxt);
   swapFileInput();
+  attachSaveHook();
 
   var note = document.querySelector('.memnote');
   if(note && note.textContent.indexOf('десятичными') < 0){

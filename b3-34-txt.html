@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Б3-34 — листинг и TXT</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:#15160f;color:#e9e6db;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+body{padding:12px;display:flex;justify-content:center}
+.wrap{width:100%;max-width:440px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
+.top h1{margin:0;font-size:16px;font-weight:700;letter-spacing:.3px}
+.top a{color:#8dffab;text-decoration:none;font-size:12px;border:1px solid #3a4232;border-radius:8px;padding:6px 10px;background:#20241c}
+.sub{margin:0 0 12px;font-size:11px;line-height:1.45;color:#8f9a8a}
+.card{background:#1e2119;border:1px solid #383b30;border-radius:12px;padding:10px;margin-bottom:10px}
+.card .name{font-size:13px;font-weight:700;color:#e9e6db;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card .len{font-size:10px;color:#7d8877;margin-bottom:8px}
+.prepline{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11px;line-height:1.45;color:#ffcf5a;background:#262a22;border-radius:8px;padding:7px 9px;margin-bottom:8px;word-break:break-word}
+.exprow{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.exprow label{font-size:11px;color:#8f9a8a;white-space:nowrap}
+.exprow input{flex:1;min-width:0;background:#20241c;border:1px solid #3a4232;border-radius:8px;color:#a9e8b8;padding:7px 9px;font-size:12px;font-family:ui-monospace,monospace}
+.exprow input::placeholder{color:#5f6a5b}
+.lst{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;line-height:1.5}
+.step{display:grid;grid-template-columns:26px 30px 1fr;gap:6px;padding:2px 4px;border-radius:5px;cursor:pointer}
+.step+.step{margin-top:1px}
+.step .ad{color:#7fa88a}
+.step .cd{color:#8dffab;font-weight:700}
+.step .nm{color:#dbe9db;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.step.addr .cd{color:#ffcf5a}
+.step.addr .nm{color:#9aa794}
+.step.jmp .nm{color:#a9d8ff}
+.step.sel{background:#2c4a33;box-shadow:inset 0 0 0 1px #5f9d6f}
+.empty{font-size:12px;line-height:1.5;color:#75806f;padding:10px 2px}
+.bar{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:12px}
+.bar button{background:#2b2d26;color:#ddd8c9;border:1px solid #45473c;border-radius:9px;padding:11px;font-size:12px;font-family:inherit}
+.bar button.prim{background:#2f5d8a;color:#fff;border-color:#3f6f9e;font-weight:700;grid-column:1 / -1}
+.bar button:active{transform:translateY(1px)}
+.note{margin-top:10px;font-size:11px;line-height:1.4;color:#8f9a8a;min-height:16px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>Листинг программ</h1>
+    <a href="b3-34.html">← в калькулятор</a>
+  </div>
+  <p class="sub">Данные берутся из памяти калькулятора. Сначала набери программу и занеси числа в регистры на странице калькулятора, потом открой эту и нажми «Обновить».</p>
+
+  <div id="list"></div>
+
+  <div class="bar">
+    <button id="btnTxt" class="prim">⬇ Скачать TXT</button>
+    <button id="btnCopy">📋 Скопировать</button>
+    <button id="btnReload">🔄 Обновить</button>
+  </div>
+  <p class="note" id="note"></p>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+var LS_STATE = 'b334.state.v3';
+var LS_LIB   = 'b334.programs.v2';
+var LS_META  = 'b334.txt.meta';
+
+var TBL = '0123456789-LCГE ';
+var REGN = ['0','1','2','3','4','5','6','7','8','9','a','b','c','d'];
+
+var CMD = {
+  0x0A:'·', 0x0B:'/-/', 0x0C:'ВП', 0x0D:'Cx', 0x0E:'В↑', 0x0F:'Вx',
+  0x10:'+', 0x11:'−', 0x12:'×', 0x13:'÷', 0x14:'↔',
+  0x15:'10^x', 0x16:'e^x', 0x17:'lg', 0x18:'ln',
+  0x19:'arcsin', 0x1A:'arccos', 0x1B:'arctg', 0x1C:'sin', 0x1D:'cos', 0x1E:'tg',
+  0x20:'π', 0x21:'√', 0x22:'x²', 0x23:'1/x', 0x24:'x^y', 0x25:'F◯',
+  0x50:'С/П', 0x51:'БП', 0x52:'В/О', 0x53:'ПП', 0x54:'К НОП',
+  0x57:'F x≠0', 0x58:'F L2', 0x59:'F x≥0', 0x5A:'F L3',
+  0x5B:'F L1', 0x5C:'F x<0', 0x5D:'F L0', 0x5E:'F x=0'
+};
+
+function p2(n){ return (n < 10 ? '0' : '') + n; }
+function codeStr(c){ c = c & 255; return TBL[(c >> 4) & 15] + TBL[c & 15]; }
+
+function isJump(c){
+  return c === 0x51 || c === 0x53 ||
+         c === 0x57 || c === 0x59 || c === 0x5C || c === 0x5E ||
+         c === 0x5D || c === 0x5B || c === 0x58 || c === 0x5A;
+}
+
+function stepName(c){
+  c = c & 255;
+  if(c >= 0 && c <= 9) return 'число ' + c;
+  if(CMD[c]) return CMD[c];
+  if(c >= 0x40 && c <= 0x4D) return 'X→П ' + REGN[c & 15];
+  if(c >= 0x60 && c <= 0x6D) return 'П→X ' + REGN[c & 15];
+  if(c >= 0x70 && c <= 0x7D) return 'К x≠0 ' + REGN[c & 15];
+  if(c >= 0x80 && c <= 0x8D) return 'К БП ' + REGN[c & 15];
+  if(c >= 0x90 && c <= 0x9D) return 'К x≥0 ' + REGN[c & 15];
+  if(c >= 0xA0 && c <= 0xAD) return 'К ПП ' + REGN[c & 15];
+  if(c >= 0xC0 && c <= 0xCD) return 'К x<0 ' + REGN[c & 15];
+  if(c >= 0xE0 && c <= 0xED) return 'К x=0 ' + REGN[c & 15];
+  return '?';
+}
+
+function lastStep(prog){
+  var last = -1;
+  for(var i = 0; i < 98; i++){
+    if(typeof prog[i] === 'number' && (prog[i] & 255) !== 0x54) last = i;
+  }
+  return last;
+}
+
+function jumpAddr(prog, ip){
+  var a = prog[ip + 1], b = prog[ip + 2];
+  if(typeof a !== 'number' || typeof b !== 'number') return -1;
+  a = a & 255; b = b & 255;
+  if(a > 9 || b > 9) return -1;
+  return a * 10 + b;
+}
+
+/* какие регистры программа читает (П→X r) — их и надо заполнить перед пуском */
+function regsRead(prog){
+  var out = [], seen = {};
+  var last = lastStep(prog);
+  for(var i = 0; i <= last; i++){
+    var c = prog[i] & 255;
+    if(isJump(c)){ i += 2; continue; }
+    var hi = (c >> 4) & 15, lo = c & 15;
+    if(hi === 6 && !seen[lo]){ seen[lo] = 1; out.push(lo); }
+  }
+  return out;
+}
+
+function numStr(v){
+  if(typeof v !== 'number' || !isFinite(v)) return '—';
+  if(v === 0) return '0';
+  return String(Number(v.toPrecision(8)));
+}
+
+function prepLine(item){
+  var used = regsRead(item.prog);
+  if(!used.length) return 'Перед пуском: регистры не нужны — все данные в самой программе';
+  var parts = [];
+  used.forEach(function(r){
+    var v = item.regs ? item.regs[r] : null;
+    if(typeof v === 'number' && v !== 0){
+      parts.push('R' + REGN[r] + ' = ' + numStr(v));
+    }else{
+      parts.push('R' + REGN[r] + ' — вписать число');
+    }
+  });
+  var s = 'Перед пуском: ' + parts.join(', ');
+  if(used.length === 1){
+    var r0 = used[0];
+    var v0 = item.regs ? item.regs[r0] : null;
+    if(typeof v0 === 'number' && v0 !== 0){
+      s += '  (записать: ' + numStr(v0) + ' → X→П → ' + REGN[r0] + ')';
+    }else{
+      s += '  (записать: число → X→П → ' + REGN[r0] + ')';
+    }
+  }
+  return s;
+}
+
+/* ---------- память браузера ---------- */
+function readState(){
+  try{
+    var raw = localStorage.getItem(LS_STATE);
+    if(!raw) return null;
+    var o = JSON.parse(raw);
+    if(!o || !Array.isArray(o.prog)) return null;
+    return o;
+  }catch(e){ return null; }
+}
+
+function readLib(){
+  try{
+    var raw = localStorage.getItem(LS_LIB);
+    var arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr : [];
+  }catch(e){ return []; }
+}
+
+var meta = {};
+function readMeta(){
+  try{
+    var raw = localStorage.getItem(LS_META);
+    meta = raw ? (JSON.parse(raw) || {}) : {};
+    if(typeof meta !== 'object' || meta === null) meta = {};
+  }catch(e){ meta = {}; }
+}
+function saveMeta(){
+  try{ localStorage.setItem(LS_META, JSON.stringify(meta)); }catch(e){}
+}
+
+/* ---------- сбор данных ---------- */
+var cards = [];
+
+function collect(){
+  cards = [];
+  var st = readState();
+  if(st && Array.isArray(st.prog)){
+    cards.push({ name: 'Текущая программа', prog: st.prog, regs: Array.isArray(st.R) ? st.R : null });
+  }
+  readLib().forEach(function(p){
+    if(!p || !Array.isArray(p.prog)) return;
+    cards.push({
+      name: String(p.name || 'Без названия'),
+      prog: p.prog,
+      regs: Array.isArray(p.R) ? p.R : null
+    });
+  });
+  return cards;
+}
+
+/* ---------- текст TXT ---------- */
+function listing(item){
+  var out = [];
+  var last = lastStep(item.prog);
+  out.push('=== ' + item.name + ' ===');
+  out.push(prepLine(item));
+  var e = meta[item.name];
+  out.push('Ожидаемый результат: ' + (e && String(e).trim() ? String(e).trim() : '—'));
+  out.push('');
+  if(last < 0){ out.push('(программа пуста)'); return out.join('\n'); }
+
+  var isAddr = {};
+  for(var k = 0; k <= last; k++){
+    if(isJump(item.prog[k] & 255)){ isAddr[k + 1] = true; isAddr[k + 2] = true; }
+  }
+
+  for(var i = 0; i <= last; i++){
+    var c = item.prog[i] & 255;
+    var ad = p2(i);
+    if(isAddr[i]){
+      var dig = c & 15;
+      var role = isJump((item.prog[i - 1] || 0) & 255) ? 'десятки' : 'единицы';
+      out.push(ad + '  ' + p2(dig) + '   цифра адреса: ' + role + ' ' + dig);
+      continue;
+    }
+    var nm = stepName(c);
+    if(isJump(c)){
+      var t = jumpAddr(item.prog, i);
+      if(t >= 0) nm += ' → ' + p2(t);
+    }
+    out.push(ad + '  ' + codeStr(c) + '   ' + nm);
+  }
+  return out.join('\n');
+}
+
+function buildText(){
+  var out = [];
+  out.push('ЭЛЕКТРОНИКА Б3-34 — листинг программ');
+  out.push('сохранено: ' + new Date().toLocaleString('ru-RU'));
+  out.push('');
+  out.push('Коды записаны как на клавишах: 60 = П→X 0, 41 = X→П 1, 5L = F L1, 50 = С/П.');
+  out.push('Переход занимает три шага: команда, десятки адреса, единицы адреса.');
+  out.push('');
+  if(!cards.length){
+    out.push('(программ нет)');
+  }else{
+    cards.forEach(function(c){
+      out.push(listing(c));
+      out.push('');
+    });
+  }
+  return out.join('\n');
+}
+
+/* ---------- отрисовка ---------- */
+var listEl = document.getElementById('list');
+var noteEl = document.getElementById('note');
+
+function makeStep(i, code, name, kind, info){
+  var row = document.createElement('div');
+  row.className = 'step' + (kind ? ' ' + kind : '');
+
+  var a = document.createElement('span');
+  a.className = 'ad';
+  a.textContent = p2(i);
+
+  var c = document.createElement('span');
+  c.className = 'cd';
+  c.textContent = code;
+
+  var n = document.createElement('span');
+  n.className = 'nm';
+  n.textContent = name;
+
+  row.appendChild(a);
+  row.appendChild(c);
+  row.appendChild(n);
+
+  row.addEventListener('click', function(){
+    var prev = row.parentNode.querySelector('.step.sel');
+    if(prev) prev.classList.remove('sel');
+    row.classList.add('sel');
+    noteEl.textContent = info;
+  });
+  return row;
+}
+
+function drawCard(item){
+  var box = document.createElement('section');
+  box.className = 'card';
+
+  var nm = document.createElement('div');
+  nm.className = 'name';
+  nm.textContent = item.name;
+
+  var len = document.createElement('div');
+  len.className = 'len';
+  var last = lastStep(item.prog);
+  len.textContent = last < 0 ? 'программа пуста' : (last + 1) + ' шагов (адреса 00–' + p2(last) + ')';
+
+  box.appendChild(nm);
+  box.appendChild(len);
+
+  var pre = document.createElement('div');
+  pre.className = 'prepline';
+  pre.textContent = prepLine(item);
+  box.appendChild(pre);
+
+  var row = document.createElement('div');
+  row.className = 'exprow';
+  var lab = document.createElement('label');
+  lab.textContent = 'Что должно получиться:';
+  var inp = document.createElement('input');
+  inp.type = 'text';
+  inp.placeholder = 'например 5040';
+  inp.value = meta[item.name] || '';
+  inp.addEventListener('input', function(){
+    meta[item.name] = inp.value;
+    saveMeta();
+  });
+  row.appendChild(lab);
+  row.appendChild(inp);
+  box.appendChild(row);
+
+  var lst = document.createElement('div');
+  lst.className = 'lst';
+
+  if(last < 0){
+    var e = document.createElement('div');
+    e.className = 'empty';
+    e.textContent = 'Программа пуста: набери её на странице калькулятора в режиме ПРГ.';
+    lst.appendChild(e);
+  }else{
+    var isAddr = {};
+    for(var k = 0; k <= last; k++){
+      if(isJump(item.prog[k] & 255)){ isAddr[k + 1] = true; isAddr[k + 2] = true; }
+    }
+    for(var i = 0; i <= last; i++){
+      var c = item.prog[i] & 255;
+      if(isAddr[i]){
+        var dig = c & 15;
+        var role = isJump((item.prog[i - 1] || 0) & 255) ? 'десятки' : 'единицы';
+        lst.appendChild(makeStep(i, p2(dig),
+          'цифра адреса: ' + role + ' ' + dig, 'addr',
+          'Шаг ' + p2(i) + ': код ' + p2(dig) + ' — цифра адреса перехода (' + role + '), а не отдельная команда'));
+        continue;
+      }
+      var name = stepName(c);
+      var isJumpRow = isJump(c);
+      if(isJumpRow){
+        var t = jumpAddr(item.prog, i);
+        if(t >= 0) name += ' → ' + p2(t);
+      }
+      var kind = isJumpRow ? 'jmp' : (c >= 0 && c <= 9 ? 'addr' : '');
+      lst.appendChild(makeStep(i, codeStr(c), name, kind,
+        'Шаг ' + p2(i) + ': код ' + codeStr(c) + ' — ' + stepName(c)));
+    }
+  }
+
+  box.appendChild(lst);
+  return box;
+}
+
+function rebuild(){
+  readMeta();
+  collect();
+  listEl.innerHTML = '';
+  if(!cards.length){
+    var e = document.createElement('div');
+    e.className = 'empty';
+    e.textContent = 'Пока ничего нет. Открой калькулятор, набери программу в режиме ПРГ — она сохранится сама, — и вернись сюда.';
+    listEl.appendChild(e);
+    noteEl.textContent = '';
+    return;
+  }
+  cards.forEach(function(c){ listEl.appendChild(drawCard(c)); });
+  noteEl.textContent = 'Готово: ' + cards.length + ' ' + (cards.length === 1 ? 'программа' : 'программ') + '. Нажми на любую строку — внизу появится расшифровка кода.';
+}
+
+/* ---------- файлы ---------- */
+function stamp(){
+  var d = new Date();
+  return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()) + '_' +
+         p2(d.getHours()) + p2(d.getMinutes());
+}
+
+function download(name, text){
+  try{
+    var blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function(){
+      if(a.parentNode) a.parentNode.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 2000);
+    return true;
+  }catch(e){
+    noteEl.textContent = 'Браузер не дал сохранить файл: ' + (e.message || 'ошибка');
+    return false;
+  }
+}
+
+document.getElementById('btnTxt').addEventListener('click', function(){
+  if(!cards.length){ noteEl.textContent = 'Список пуст — сохранять нечего'; return; }
+  var text = buildText();
+  if(download('b3-34_listing_' + stamp() + '.txt', text)){
+    noteEl.textContent = 'Файл TXT сохранён в «Загрузки»: ' + cards.length + ' программ, коды как на клавишах.';
+  }
+});
+
+document.getElementById('btnCopy').addEventListener('click', function(){
+  if(!cards.length){ noteEl.textContent = 'Список пуст — копировать нечего'; return; }
+  var text = buildText();
+  function fallback(){
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try{ document.execCommand('copy'); noteEl.textContent = 'Листинг скопирован в буфер обмена'; }
+    catch(e){ noteEl.textContent = 'Не удалось скопировать — скачай файл кнопкой выше'; }
+    document.body.removeChild(ta);
+  }
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(function(){
+      noteEl.textContent = 'Листинг скопирован в буфер обмена';
+    }).catch(fallback);
+  }else{
+    fallback();
+  }
+});
+
+document.getElementById('btnReload').addEventListener('click', rebuild);
+
+rebuild();
+})();
+</script>
+</body>
+</html>

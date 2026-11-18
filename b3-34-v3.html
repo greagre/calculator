@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Электроника Б3-34 — v3</title>
+<meta name="theme-color" content="#23251f">
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:#15160f;color:#e9e6db;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+body{padding:10px;display:flex;justify-content:center}
+.wrap{width:100%;max-width:440px}
+.case{background:linear-gradient(160deg,#cdc7b4,#b1a992);border-radius:18px;padding:12px 12px 14px;box-shadow:0 12px 30px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.5)}
+.brand{display:flex;align-items:baseline;justify-content:space-between;color:#3b3a32;font-size:11px;letter-spacing:2px;margin:2px 4px 8px}
+.brand b{font-size:13px;letter-spacing:1px}
+.lcdbox{background:#1b1f18;border-radius:8px;padding:8px 10px;box-shadow:inset 0 2px 10px rgba(0,0,0,.85)}
+.lcd{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:25px;line-height:1.15;color:#7dff9b;text-shadow:0 0 9px rgba(125,255,155,.6);text-align:right;min-height:30px;letter-spacing:1px;overflow:hidden;white-space:nowrap}
+.lcd.small{font-size:19px;letter-spacing:0}
+.lcd.err{color:#ff8a7a;text-shadow:0 0 9px rgba(255,138,122,.6)}
+.lcdrow{display:flex;justify-content:space-between;font-size:10px;color:#6fa37d;margin-top:5px;font-family:ui-monospace,monospace;gap:8px}
+.lcdrow span:last-child{text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* стек: тёмные плашки, подпись сверху, значение яркое снизу */
+.stack{display:flex;gap:5px;margin:8px 0 6px;font-family:ui-monospace,monospace}
+.stack div{background:#20241c;border:1px solid #3a4232;border-radius:6px;padding:4px 3px 5px;flex:1;text-align:center;overflow:hidden;color:#8dffab;font-size:13px;font-weight:700;line-height:1.2;white-space:nowrap;text-overflow:ellipsis;text-shadow:0 0 7px rgba(141,255,171,.4)}
+.stack b{display:block;color:#7fa88a;font-weight:700;font-size:9px;letter-spacing:.6px;margin-bottom:2px;text-shadow:none}
+
+/* регистры: 5 в ряд, значения крупнее и ярче */
+.regs{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin:0 0 9px}
+.regs button{background:#20241c;border:1px solid #3a4232;border-radius:6px;padding:5px 3px 6px;color:#8dffab;font-family:ui-monospace,monospace;text-align:center;overflow:hidden;transition:background .15s}
+.regs button b{display:block;color:#7fa88a;font-size:9px;font-weight:700;letter-spacing:.5px;margin-bottom:2px}
+.regs button .v{display:block;font-size:13px;font-weight:700;color:#8dffab;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 0 7px rgba(141,255,171,.4)}
+.regs button.flash{background:#2c6b3f}
+
+.pad{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+button.key{background:#8e8877;border:none;border-radius:8px;color:#1c1c17;font-size:13px;font-weight:600;padding:12px 0;box-shadow:0 2px 0 rgba(0,0,0,.35);font-family:inherit}
+button.key.dark{background:#4a4a44;color:#f0ede3}
+button.key.blue{background:#2f5d8a;color:#fff}
+button.key.red{background:#a33b34;color:#fff}
+button.key.pref{background:#3f3f39;color:#ffcf5a}
+button.key:active{transform:translateY(1px);box-shadow:none}
+button.key.on{outline:2px solid #ffd166;outline-offset:1px}
+.panel{margin-top:8px;background:rgba(0,0,0,.16);border-radius:8px;padding:8px}
+.panel .lbl{font-size:11px;color:#4a483e;margin-bottom:6px;letter-spacing:1px}
+.regpick{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.regpick button{background:#efe9d6;border:none;border-radius:6px;padding:9px 0;font-weight:700;color:#2a2822;font-family:inherit}
+.tools{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:10px}
+.tools button{background:#2b2d26;color:#ddd8c9;border:1px solid #45473c;border-radius:9px;padding:10px;font-size:12px;font-family:inherit}
+.tools button.on{background:#2c4a33;border-color:#5f9d6f;color:#c9f5d4}
+.tools button.run{grid-column:1 / -1;background:#2c6b3f;border-color:#4d9a64;color:#eafff0;font-size:14px;font-weight:700;padding:13px}
+.tools button.stop{background:#5b2f2b;border-color:#8a4a42;color:#ffd6cf}
+.tools button.prim{background:#2f5d8a;color:#fff;border-color:#3f6f9e}
+.hint{margin-top:8px;font-size:12px;color:#8f9a8a;line-height:1.4;min-height:16px}
+.mem{margin-top:10px;background:#1e2119;border:1px solid #383b30;border-radius:10px;padding:10px}
+.mem .lbl{color:#8f9a8a;font-size:11px;letter-spacing:1px;margin-bottom:8px}
+.proglist{display:flex;flex-direction:column;gap:6px;margin-bottom:8px;max-height:190px;overflow-y:auto}
+.proglist .empty{font-size:12px;color:#75806f;line-height:1.4;padding:2px 2px 6px}
+.progitem{display:flex;align-items:center;gap:6px;background:#262a22;border:1px solid #3a3e33;border-radius:8px;padding:6px 8px;font-size:12px;color:#d8d3c2}
+.progitem .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.progitem .st{font-size:10px;color:#7d8877;margin-left:4px}
+.progitem button{background:#3f3f39;border:none;border-radius:6px;color:#e9e6db;font-size:12px;padding:5px 9px;font-family:inherit}
+.progitem button.del{background:#5b2f2b;color:#ffd6cf}
+.memrow{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+.memrow button{background:#2b2d26;color:#ddd8c9;border:1px solid #45473c;border-radius:9px;padding:10px;font-size:12px;font-family:inherit}
+.memrow button.prim{background:#2f5d8a;color:#fff;border-color:#3f6f9e}
+.memnote{margin-top:8px;font-size:11px;color:#75806f;line-height:1.4}
+.help{margin-top:10px;background:#1e2119;border:1px solid #383b30;border-radius:10px;padding:12px;font-size:13px;line-height:1.5;color:#cfcbbc;display:none}
+.help h3{margin:10px 0 4px;font-size:13px;color:#a9e8b8}
+.help p{margin:4px 0}
+.help code{background:#2a2d24;padding:1px 4px;border-radius:4px;font-size:12px}
+.help ul{margin:4px 0 4px 18px;padding:0}
+.help li{margin:2px 0}
+
+/* ---------- вкладки ---------- */
+.tabs{display:flex;gap:6px;margin-bottom:10px}
+.tabs button{flex:1;background:#2b2d26;border:1px solid #45473c;color:#ddd8c9;border-radius:10px;padding:10px;font-size:13px;font-family:inherit}
+.tabs button.on{background:#2c6b3f;border-color:#4d9a64;color:#eafff0;font-weight:700}
+
+/* ---------- справочник ---------- */
+#tabCatalog{background:#191c15;border:1px solid #33372c;border-radius:14px;padding:12px}
+.catsearch{width:100%;background:#20241c;border:1px solid #3a4232;border-radius:10px;color:#e9e6db;padding:10px 12px;font-size:13px;font-family:inherit;margin-bottom:10px}
+.catsearch::placeholder{color:#75806f}
+.catbar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.catbar button{background:#2b2d26;border:1px solid #45473c;color:#ddd8c9;border-radius:999px;padding:7px 14px;font-size:12px;font-family:inherit}
+.catbar button.on{background:#2f5d8a;border-color:#3f6f9e;color:#fff;font-weight:700}
+.catintro{font-size:11px;color:#8f9a8a;line-height:1.45;margin-bottom:10px}
+.catempty{font-size:12px;color:#75806f;padding:10px 2px}
+.card{background:#1e2119;border:1px solid #383b30;border-radius:12px;margin-bottom:8px;overflow:hidden}
+.card.open{border-color:#4d9a64;box-shadow:0 0 0 1px rgba(77,154,100,.35)}
+.cardhead{width:100%;display:flex;align-items:center;gap:10px;background:none;border:none;color:#e9e6db;padding:12px;font-family:inherit;text-align:left}
+.cardhead .ico{font-size:18px;line-height:1}
+.cardhead .ttl{flex:1;font-size:14px;font-weight:700;line-height:1.25}
+.cardhead .ttl .sub{display:block;font-weight:400;font-size:11px;color:#8f9a8a;margin-top:3px}
+.cardhead .chev{color:#8f9a8a;font-size:15px}
+.cardbody{padding:0 12px 12px;font-size:13px;color:#cfcbbc;line-height:1.5}
+.cardbody .desc{margin-bottom:6px}
+.cardbody .formula{background:#262a22;border-radius:8px;padding:8px 10px;margin:8px 0;font-family:ui-monospace,monospace;color:#a9e8b8;font-size:12px;overflow-x:auto;white-space:nowrap}
+.cardbody .row{font-size:12px;color:#9aa794;margin:3px 0}
+.cardbody table.lst{width:100%;border-collapse:collapse;font-family:ui-monospace,monospace;font-size:11px;margin:10px 0}
+.cardbody table.lst th{color:#7fa88a;font-weight:700;text-align:left;padding:4px;border-bottom:1px solid #3a4232}
+.cardbody table.lst td{padding:3px 4px;color:#dbe9db;border-bottom:1px solid #262a22}
+.cardbody table.lst td.a{color:#8f9a8a}
+.cardbody table.lst td.addr{color:#ffcf5a}
+.checkline{font-size:12px;color:#8fd6a2;margin:8px 0 4px;font-weight:700}
+.acts{display:flex;flex-direction:column;gap:6px;margin-top:12px}
+.acts button{border:none;border-radius:9px;padding:12px;font-size:13px;font-family:inherit}
+.acts .load{background:#2c6b3f;color:#eafff0;font-weight:700}
+.acts .copy{background:#2b2d26;color:#ddd8c9;border:1px solid #45473c}
+
+/* ---------- выбор готовой программы ---------- */
+.sheet{position:fixed;inset:0;background:rgba(0,0,0,.62);display:none;align-items:flex-end;justify-content:center;z-index:60;padding:12px}
+.sheet.on{display:flex}
+.sheetbox{width:100%;max-width:440px;background:#1e2119;border:1px solid #383b30;border-radius:16px;padding:12px;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 -8px 30px rgba(0,0,0,.5)}
+.sheettop{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;color:#e9e6db;font-size:14px}
+.sheettop b{font-weight:700}
+.sheettop button{background:#2b2d26;border:1px solid #45473c;color:#ddd8c9;border-radius:8px;padding:6px 12px;font-family:inherit;font-size:13px}
+.sheetlist{overflow-y:auto;display:flex;flex-direction:column;gap:6px}
+.sheetitem{display:flex;align-items:center;gap:10px;background:#262a22;border:1px solid #3a3e33;border-radius:10px;padding:11px 12px;color:#e9e6db;font-size:13px;font-family:inherit;text-align:left;width:100%}
+.sheetitem .ic{font-size:17px;line-height:1}
+.sheetitem .tx{flex:1;min-width:0}
+.sheetitem .tx span{display:block;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sheetitem .tx small{display:block;color:#8f9a8a;font-size:11px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sheetnote{margin-top:10px;font-size:11px;color:#75806f;line-height:1.4}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="tabs">
+    <button data-tab="calc" class="on">🧮 Калькулятор</button>
+    <button data-tab="catalog">📚 Программы</button>
+  </div>
+
+  <div id="tabCalc">
+
+  <div class="case">
+    <div class="brand"><span>ЭЛЕКТРОНИКА</span><b>Б3-34 · v3</b></div>
+    <div class="lcdbox">
+      <div class="lcd" id="lcd">0</div>
+      <div class="lcdrow"><span id="lMode">АВТ</span><span id="lAddr"></span><span id="lPref"></span></div>
+    </div>
+    <div class="stack" id="stack"></div>
+    <div class="regs" id="regs"></div>
+    <div class="pad" id="pad"></div>
+    <div class="panel" id="panel" style="display:none"></div>
+  </div>
+  <div class="tools">
+    <button id="btnRun" class="run">▶ Пуск программы</button>
+    <button id="btnStop" class="stop">⏹ Стоп</button>
+    <button id="btnSpeed">🐢 Темп: оригинал</button>
+    <button id="btnSound" class="on">🔊 Звук: вкл</button>
+    <button id="btnVoice" class="on">🗣 Голос: вкл</button>
+    <button id="btnMic">🎤 Сказать</button>
+    <button id="btnPick" class="prim">📥 Пример…</button>
+    <button id="btnHelp">❓ Справка</button>
+    <button id="btnReset">⏻ Сброс</button>
+    <button id="btnDemo" style="display:none">📥 Пример: n!</button>
+    <button id="btnDemo2" style="display:none">📐 Пример: отрезок</button>
+    <button id="btnDemo3" style="display:none">🔢 Пример: НОД</button>
+  </div>
+  <div class="hint" id="hint">RPN: сначала число, затем В↑ и второе число, потом операция. Например 5 В↑ 3 + → 8.</div>
+
+  <div class="mem">
+    <div class="lbl">ПРОГРАММЫ: ПАМЯТЬ И ФАЙЛЫ</div>
+    <div class="proglist" id="progList"></div>
+    <div class="memrow">
+      <button id="btnSaveProg" class="prim">💾 Сохранить программу</button>
+      <button id="btnImportFile">⬆ Загрузить файл</button>
+      <button id="btnExportJson">⬇ Файл JSON</button>
+      <button id="btnExportTxt">⬇ Файл TXT</button>
+    </div>
+    <div class="memnote">Список хранится в памяти браузера на этом телефоне. Файлы JSON/TXT сохраняются в «Загрузки» — их можно перенести на другое устройство и загрузить обратно.</div>
+    <input type="file" id="fileInput" accept=".json,.txt,application/json,text/plain" style="display:none">
+  </div>
+
+  <div class="help" id="help">
+    <h3>Как считать</h3>
+    <p>Обратная польская запись: <code>5 В↑ 3 +</code> даёт 8. Клавиша <code>В↑</code> разделяет числа, <code>↔</code> меняет X и Y, <code>F◯</code> прокручивает стек.</p>
+
+    <h3>Где смотреть стек и регистры</h3>
+    <p>Сразу под индикатором — пять тёмных плашек: <b>X</b>, <b>Y</b>, <b>Z</b>, <b>T</b> и <b>X1</b>. Подпись мелкая сверху, само значение — крупным ярко-зелёным, как на индикаторе.</p>
+    <p>Ниже — все 14 регистров <code>R0</code>–<code>R9</code>, <code>Ra</code>–<code>Rd</code> с их значениями.</p>
+    <ul>
+      <li><b>короткое нажатие</b> на регистр — вызвать его значение в X (как <code>П→X</code>);</li>
+      <li><b>долгое нажатие</b> (около половины секунды, плашка мигнёт зелёным) — записать X в регистр (как <code>X→П</code>).</li>
+    </ul>
+    <p>Если значение длинное, оно укорачивается многоточием — полное видно на индикаторе после вызова регистра в X.</p>
+
+    <h3>Запуск программы — два способа</h3>
+    <p><b>Способ 1, кнопкой:</b> зелёная <code>▶ Пуск программы</code>. Сама ставит автоматический режим, адрес 00 и запускает. Удобно, но помни: на настоящем Б3-34 такой кнопки не было — это наша добавка.</p>
+    <p><b>Способ 2, как на настоящем:</b> <code>f</code> → <code>АВТ</code> → <code>В/О</code> → <code>С/П</code>. <code>АВТ</code> возвращает из режима программирования, <code>В/О</code> ставит адрес 00, <code>С/П</code> пускает.</p>
+    <p>Повторное <code>С/П</code> во время счёта — остановка на текущем адресе, в покое — продолжение с места останова. <code>ПП</code> в режиме АВТ — один шаг.</p>
+
+    <h3>Темп счёта</h3>
+    <p>По умолчанию калькулятор считает <b>в темпе оригинала — примерно 5 шагов в секунду</b>, со щелчком на каждый шаг. Пока идёт счёт, на индикаторе справа видно адрес и код выполняемой команды: <code>▶ 04 12 ×</code>.</p>
+    <p>Кнопка <code>🐢 Темп: оригинал</code> переключает на быстрый счёт без задержек — удобно для длинных циклов. Кнопка <code>⏹ Стоп</code> останавливает программу в любой момент.</p>
+
+    <h3>Разрядность и ЕГГОГ</h3>
+    <p>Как у настоящего Б3-34: мантисса <b>8 значащих цифр</b>, порядок <b>две цифры</b> (примерно от 1·10⁻⁹⁹ до 9,9999999·10⁹⁹).</p>
+    <ul>
+      <li>ввести можно не больше 8 цифр мантиссы и 2 цифр порядка — лишние нажатия игнорируются;</li>
+      <li>результат каждой операции округляется до 8 значащих цифр, поэтому <code>1/3 × 3</code> даёт не ровно 1, а как у оригинала;</li>
+      <li><b>ЕГГОГ</b> появляется при переполнении порядка, делении на ноль, √ из отрицательного, lg/ln от нуля и отрицательного, arcsin/arccos вне [−1; 1].</li>
+    </ul>
+    <p>Честно: внутри считает обычная математика JavaScript с округлением до 8 значащих цифр, а не двоично-десятичная арифметика микросхемы — в последнем разряде редких случаев результат может отличаться.</p>
+
+    <h3>Переходы занимают три шага</h3>
+    <p>Как у настоящего Б3-34, команды <code>БП</code>, <code>ПП</code>, условия <code>x&lt;0</code>, <code>x=0</code>, <code>x≥0</code>, <code>x≠0</code> и циклы <code>L0</code>–<code>L3</code> занимают <b>три ячейки</b>: сама команда, потом <b>десятки</b> адреса и <b>единицы</b> адреса. Поэтому адреса в программе совпадают с бумажным оригиналом.</p>
+    <p>При наборе адрес вводится двумя цифрами: например для перехода на адрес 20 нажимаются <code>2</code> и <code>0</code> — это два отдельных шага программы.</p>
+    <p>Косвенные команды <code>К БП</code>, <code>К ПП</code>, <code>К x&lt;0</code>, <code>К x=0</code> и <code>К x≥0</code> занимают одну ячейку: адрес в них берётся из регистра, а не из программы.</p>
+
+    <h3>Панель регистров</h3>
+    <p>Под стеком видна постоянная панель всех 14 регистров: <code>R0</code>–<code>R9</code>, <code>Ra</code>–<code>Rd</code>.</p>
+    <ul>
+      <li><b>короткое нажатие</b> — вызвать регистр в X (как <code>П→X</code>);</li>
+      <li><b>долгое нажатие</b> (около половины секунды) — записать X в регистр (как <code>X→П</code>).</li>
+    </ul>
+    <p>Регистры, как и у оригинала, хранят 8 значащих цифр.</p>
+
+    <h3>Справочник программ</h3>
+    <p>Вторая вкладка сверху — <code>📚 Программы</code>. Там готовые программы по темам: нажми на название, раскроется листинг в кодах с расшифровкой каждой строки, кнопка <code>▶ Загрузить в калькулятор</code> кладёт программу в память (и нужные числа в регистры), <code>📋 Скопировать коды</code> — текстом в буфер.</p>
+    <p>На вкладке калькулятора для быстрого доступа есть одна кнопка <code>📥 Пример…</code> — она открывает список тех же программ из справочника. Данные берутся из одного места, поэтому расхождений между кнопкой и вкладкой быть не может.</p>
+
+    <h3>Пример из литературы: длина отрезка</h3>
+    <p>Программа из открытого примера для МК-61 (система команд и коды полностью совместимы с Б3-34):</p>
+    <p><code>00 61</code> П→X 1 · <code>01 62</code> П→X 2 · <code>02 11</code> − · <code>03 22</code> x² · <code>04 63</code> П→X 3 · <code>05 64</code> П→X 4 · <code>06 11</code> − · <code>07 22</code> x² · <code>08 10</code> + · <code>09 21</code> √ · <code>10 50</code> С/П</p>
+    <p>Считает d = √((x₂−x₁)² + (y₂−y₁)²). Данные: x₁ → R2, y₁ → R4, x₂ → R1, y₂ → R3. Для точек (1; 2) и (8; 4) ответ 7.2801098.</p>
+    <p>Кнопка <code>📥 Пример…</code> → «Длина отрезка» загружает программу вместе с данными — остаётся нажать <code>▶ Пуск</code>.</p>
+
+    <h3>Факториал</h3>
+    <p><code>📥 Пример…</code> → «n! — факториал» загружает программу на 13 шагов. Число заносится в R0 (набери значение и нажми <code>x→П</code> → <code>0</code> или используй панель регистров), потом <code>▶ Пуск</code>.</p>
+    <p>Цикл <code>L1</code> стоит на адресе 08 и отнимает единицу у R1, а адрес возврата 04 записан двумя цифрами — в ячейках 09 и 10.</p>
+
+    <h3>НОД четырёх чисел</h3>
+    <p><code>📥 Пример…</code> → «НОД четырёх чисел» загружает программу поиска наибольшего общего делителя чисел из R1–R4 алгоритмом Евклида <b>вычитанием</b> (функции остатка у Б3-34 нет).</p>
+    <p>Числа уже подставлены: 32, 124, 206 и 1086. Включи <b>быстрый темп</b> — в оригинальном счёте 1086 и 2 потребуют сотен итераций — и нажми <code>▶ Пуск</code>. Ответ <b>2</b>.</p>
+    <p>Главная программа занимает адреса 00–14, подпрограмма НОД вызывается по <code>ПП 20</code> и лежит с адреса 20 по 40.</p>
+
+    <h3>Насколько это аутентично</h3>
+    <p><b>Совпадает:</b> двузначные коды команд, 98 шагов, стек X/Y/Z/T, регистр X1, 14 адресуемых регистров (0–9, a–d), обратная польская запись, переходы занимают три шага (команда + две цифры адреса), условный переход срабатывает при <b>выполненном</b> условии, циклы L0–L3 идут, пока регистр не ноль, косвенная адресация, 8 значащих цифр и ЕГГОГ при переполнении.</p>
+    <p><b>Коды сверены с таблицей кодов Б3-34:</b> 10 «+», 11 «−», 12 «×», 13 «÷», 14 «↔», 0B «/-/», 0C «ВП», 0D «Cx», 0E «В↑», 0F «F Вx», 20 «π», 21 «√», 22 «x²», 23 «1/x», 24 «x^y», 25 «F◯», 50 «С/П», 51 «БП», 52 «В/О», 53 «ПП», 54 «К НОП», 57 «F x≠0», 58 «F L2», 59 «F x≥0», 5A «F L3», 5B «F L1», 5C «F x<0», 5D «F L0», 5E «F x=0», 4r «X→П r», 6r «П→X r», косвенные 7r, 8r, 9r, Ar, Cr, Er.</p>
+    <p><b>Не совпадает:</b> внутри обычная арифметика JavaScript с округлением до 8 значащих цифр, а не двоично-десятичная; нет «еггогологии» и недокументированных режимов; темп задаётся таймером, а не тактовым генератором; раскладка адаптирована под сенсорный экран; память не стирается при закрытии (в оригинале стиралась).</p>
+
+    <h3>Регистры</h3>
+    <p><code>x→П</code> записывает X в регистр, <code>П→X</code> вызывает регистр. Или прямо по панели: короткое нажатие — чтение, долгое — запись.</p>
+
+    <h3>Программирование</h3>
+    <p>Нажми <code>f</code>, затем <code>ПРГ</code>. Каждое нажатие клавиши пишет её двузначный код в память (98 шагов, адреса 00–97). Команды переходов занимают <b>три шага</b>: код команды и две цифры адреса — десятки и единицы.</p>
+    <p>Поэтому в листинге после, например, <code>5B</code> (F L1) идут две отдельные строки с цифрами — это не отдельные команды, а адрес возврата.</p>
+
+    <h3>Сохранение программ</h3>
+    <p>Программа и регистры <b>сохраняются сами</b> в памяти браузера после каждого изменения.</p>
+    <p><code>💾 Сохранить программу</code> — имя и место в списке. <code>▶</code> загружает, <code>✕</code> удаляет.</p>
+    <p><code>⬇ Файл JSON</code> — все программы и состояние одним файлом. <code>⬇ Файл TXT</code> — читаемый листинг с кодами и названиями команд. <code>⬆ Загрузить файл</code> — принимает оба формата.</p>
+    <p><b>Важно:</b> файлы, сохранённые до перехода на трёхшаговые переходы, могут содержать адреса в старом формате — их стоит проверить или перенабрать.</p>
+
+    <h3>TXT в этой версии</h3>
+    <p>Файл TXT пишется <b>десятичными кодами</b> (96, 65, 91) и содержит блок <b>«Перед пуском»</b> — какие числа положить в регистры, — а также ожидаемый результат для программ из справочника. Формат строки: <code>АДРЕС  КОД  КОМАНДА</code>.</p>
+    <p>Импорт понимает и этот новый формат, и старые файлы с hex-кодами, и JSON.</p>
+
+    <h3>Голос</h3>
+    <p>Кнопка «Сказать» понимает фразы вроде «двадцать четыре умножить на шесть» и сразу выполняет их в RPN.</p>
+  </div>
+
+  </div><!-- /tabCalc -->
+
+  <div id="tabCatalog" style="display:none">
+    <input type="search" id="catSearch" class="catsearch" placeholder="Поиск по названию или коду команды: 61, √, НОД…">
+    <div class="catbar" id="catBar"></div>
+    <div class="catlist" id="catList"></div>
+  </div>
+
+</div>
+
+<div class="sheet" id="demoSheet">
+  <div class="sheetbox">
+    <div class="sheettop"><b>Готовые программы</b><button id="demoClose">✕</button></div>
+    <div class="sheetlist" id="demoList"></div>
+    <div class="sheetnote">Тот же список, что во вкладке «📚 Программы». После выбора программа загрузится в калькулятор вместе с числами для проверки.</div>
+  </div>
+</div>
+
+<script>
+/* Однократная проверка формата записей: в старой версии переход занимал
+   две ячейки, в новой — три (команда + десятки + единицы). Если в сохранении
+   после команды перехода стоят не цифры, состояние считается старым и
+   очищается, чтобы калькулятор не выдавал ЕГГОГ на «правильной» программе. */
+(function(){
+  try{
+    if(localStorage.getItem('b334.fmt') === '5') return;
+    var KEY = 'b334.state.v3';
+    var raw = localStorage.getItem(KEY);
+    var bad = false;
+    if(raw){
+      var o = JSON.parse(raw);
+      var p = (o && Array.isArray(o.prog)) ? o.prog : null;
+      if(p){
+        var J = {};
+        [0x51,0x53,0x57,0x59,0x5C,0x5E,0x5D,0x5B,0x58,0x5A].forEach(function(c){ J[c] = 1; });
+        for(var i = 0; i < p.length; i++){
+          if(J[p[i]]){
+            var a = p[i+1], b = p[i+2];
+            if(!(typeof a === 'number' && a >= 0 && a <= 9 && typeof b === 'number' && b >= 0 && b <= 9)){
+              bad = true;
+              break;
+            }
+            i += 2;
+          }
+        }
+      }
+    }
+    if(bad) localStorage.removeItem(KEY);
+    localStorage.setItem('b334.fmt', '5');
+  }catch(e){}
+})();
+</script>
+
+<script src="b3-34.js?v=5"></script>
+<script src="catalog.js?v=2"></script>
+<script src="b3-34-export.js?v=1"></script>
+<script>
+(function(){
+  var btns = document.querySelectorAll('.tabs button');
+  function show(id){
+    var tc = document.getElementById('tabCalc');
+    var tk = document.getElementById('tabCatalog');
+    if(tc) tc.style.display = (id === 'catalog') ? 'none' : '';
+    if(tk) tk.style.display = (id === 'catalog') ? '' : 'none';
+    for(var i = 0; i < btns.length; i++){
+      btns[i].className = (btns[i].getAttribute('data-tab') === id) ? 'on' : '';
+    }
+  }
+  for(var i = 0; i < btns.length; i++){
+    btns[i].addEventListener('click', function(){
+      show(this.getAttribute('data-tab'));
+      window.scrollTo(0, 0);
+    });
+  }
+})();
+</script>
+<script>
+/* Кнопка «📥 Пример…»: один список, данные из catalog.js (window.B334Cat) */
+(function(){
+  var sheet = document.getElementById('demoSheet');
+  var list = document.getElementById('demoList');
+  var open = document.getElementById('btnPick');
+  var close = document.getElementById('demoClose');
+  if(!sheet || !list || !open) return;
+
+  function closeSheet(){ sheet.classList.remove('on'); }
+
+  function fill(){
+    list.innerHTML = '';
+    var cat = window.B334Cat;
+    if(!cat || !cat.progs || !cat.progs.length){
+      var d = document.createElement('div');
+      d.className = 'sheetnote';
+      d.textContent = 'Справочник не загрузился. Обнови страницу.';
+      list.appendChild(d);
+      return;
+    }
+    cat.progs.forEach(function(p){
+      var b = document.createElement('button');
+      b.className = 'sheetitem';
+
+      var ic = document.createElement('span');
+      ic.className = 'ic';
+      ic.textContent = p.icon || '📄';
+
+      var tx = document.createElement('span');
+      tx.className = 'tx';
+      var nm = document.createElement('span');
+      nm.textContent = p.title;
+      var sm = document.createElement('small');
+      sm.textContent = p.codes.length + ' шагов' + (p.check ? ' · ' + p.check : '');
+      tx.appendChild(nm);
+      tx.appendChild(sm);
+
+      b.appendChild(ic);
+      b.appendChild(tx);
+      b.addEventListener('click', function(){
+        closeSheet();
+        cat.load(p);
+      });
+      list.appendChild(b);
+    });
+  }
+
+  open.addEventListener('click', function(){
+    fill();
+    sheet.classList.add('on');
+  });
+  if(close) close.addEventListener('click', closeSheet);
+  sheet.addEventListener('click', function(e){ if(e.target === sheet) closeSheet(); });
+})();
+</script>
+</body>
+</html>

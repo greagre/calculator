@@ -7,6 +7,11 @@
    Наружу отдаёт window.B334Cat — этим пользуется кнопка
    «📥 Пример…» на вкладке калькулятора.
 
+   v3: регистры обнуляются ВСЕГДА, а не только у программ с data.
+       Раньше после «НОДа» в R1–R4 оставались 32/124/206/1086, и
+       загруженный следом факториал считал с чужим R0. Теперь
+       память чистая: нули плюс входные значения этой программы.
+       В подтверждении показывается, что именно ляжет в регистры.
    v2: условные переходы приведены к руководству Б3-34 —
        условие ИСТИННО -> следующая команда,
        условие ЛОЖНО -> переход по адресу.
@@ -367,9 +372,22 @@ function copyText(text, btn){
 
 /* ---------------- загрузка в калькулятор ---------------- */
 function loadIntoCalc(p){
+  var lines = ['Загрузить «' + p.title + '» в калькулятор?', '',
+               'Текущая программа в памяти будет заменена.'];
+  if(p.input && p.input.length){
+    var shown = p.input.map(function(pair){
+      var r = String(pair[0]).replace(/^R/, '');
+      var v = (p.data && p.data[r] !== undefined) ? p.data[r] : 0;
+      return pair[0] + ' = ' + v;
+    });
+    lines.push('', 'В регистры будет записано: ' + shown.join(', '));
+  }else{
+    lines.push('', 'Все регистры будут обнулены.');
+  }
+
   var ok = true;
   try{
-    ok = window.confirm('Загрузить «' + p.title + '» в калькулятор?\n\nТекущая программа в памяти будет заменена.');
+    ok = window.confirm(lines.join('\n'));
   }catch(e){}
   if(!ok) return;
 
@@ -384,16 +402,29 @@ function loadIntoCalc(p){
   if(typeof st !== 'object' || st === null) st = {};
 
   st.prog = prog;
+
+  /* v3: регистры обнуляются ВСЕГДА — иначе числа от предыдущей программы
+     остаются в памяти и портят результат. Если у программы есть data,
+     поверх нулей кладутся её входные значения. */
+  var R = new Array(14).fill(0);
   if(p.data){
-    var R = new Array(14).fill(0);
-    if(Array.isArray(st.R)){
-      for(var j = 0; j < 14; j++){
-        if(typeof st.R[j] === 'number') R[j] = st.R[j];
-      }
-    }
-    Object.keys(p.data).forEach(function(k){ R[Number(k)] = p.data[k]; });
-    st.R = R;
+    Object.keys(p.data).forEach(function(k){
+      var idx = Number(k);
+      if(idx >= 0 && idx < 14) R[idx] = p.data[k];
+    });
   }
+  st.R = R;
+
+  /* стек, счётчик и стек возврата — в исходное состояние:
+     программа всегда стартует «с чистого листа» */
+  if('X' in st || !('R' in st)){ /* ничего не делаем, поля ниже ставятся явно */ }
+  st.X = 0; st.Y = 0; st.Z = 0; st.T = 0; st.X1 = 0;
+  st.ip = 0;
+  st.sub = [];
+  st.err = false;
+  st.typing = false;
+  st.input = '';
+  st.exp = false;
   st.fast = true;
 
   try{

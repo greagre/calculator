@@ -3,6 +3,9 @@
 
 /* ============================================================
    Электроника Б3-34 — логика
+   v5: исправлен косвенный переход К x≤0 (было x≥0) — по руководству
+       команда 9r переходит при X ≤ 0, а не при X ≥ 0.
+       Добавлены подписи косвенных пересылок К X→П r и К П→X r.
    v4: переходы занимают ТРИ ячейки — команда + две цифры адреса
        (десятки, единицы), как у настоящего Б3-34.
        Исправлены условные переходы (в v2 были инвертированы).
@@ -144,9 +147,11 @@ function cmdName(c){
   if(c >= 0x60 && c <= 0x6D) return 'П→X ' + REG_NAMES[c & 15];
   if(c >= 0x70 && c <= 0x7D) return 'К x≠0 ' + REG_NAMES[c & 15];
   if(c >= 0x80 && c <= 0x8D) return 'К БП ' + REG_NAMES[c & 15];
-  if(c >= 0x90 && c <= 0x9D) return 'К x≥0 ' + REG_NAMES[c & 15];
+  if(c >= 0x90 && c <= 0x9D) return 'К x≤0 ' + REG_NAMES[c & 15];
   if(c >= 0xA0 && c <= 0xAD) return 'К ПП ' + REG_NAMES[c & 15];
+  if(c >= 0xB0 && c <= 0xBD) return 'К X→П ' + REG_NAMES[c & 15];
   if(c >= 0xC0 && c <= 0xCD) return 'К x<0 ' + REG_NAMES[c & 15];
+  if(c >= 0xD0 && c <= 0xDD) return 'К П→X ' + REG_NAMES[c & 15];
   if(c >= 0xE0 && c <= 0xED) return 'К x=0 ' + REG_NAMES[c & 15];
   return '?';
 }
@@ -648,7 +653,8 @@ function runStep(){
   if(hi === 0xD){ pushValue(ST.R[modAddr(ST.R[lo], lo) % 14]); ST.ip++; return 'cont'; }
 
   if(hi === 7){ if(ST.X !== 0){ ST.ip = modAddr(ST.R[lo], lo); } else { ST.ip++; } return 'jump'; }
-  if(hi === 9){ if(ST.X >= 0){ ST.ip = modAddr(ST.R[lo], lo); } else { ST.ip++; } return 'jump'; }
+  /* 9r по руководству — переход при X ≤ 0 (было ошибочно X ≥ 0) */
+  if(hi === 9){ if(ST.X <= 0){ ST.ip = modAddr(ST.R[lo], lo); } else { ST.ip++; } return 'jump'; }
   if(hi === 0xC){ if(ST.X < 0){ ST.ip = modAddr(ST.R[lo], lo); } else { ST.ip++; } return 'jump'; }
   if(hi === 0xE){ if(ST.X === 0){ ST.ip = modAddr(ST.R[lo], lo); } else { ST.ip++; } return 'jump'; }
 
@@ -1467,7 +1473,7 @@ function loadDemo2(){
   ST.R[3] = 4;   /* y2 */
   ST.R[4] = 2;   /* y1 */
   render();
-  hint('Длина отрезка. Данные уже в регистрах: x1=1 в R2, y1=2 в R4, x2=8 в R1, y2=4 в R3. Жми «▶ Пуск» → 7.2801098');
+  hint('Длина отрезка. Данные уже в регистрах: x1=1 в R2, y1=2 в R4, x2=8 в R1, y2=4 в R3. Жми «▶ Пуск» → 7.2801099');
   say('программа загружена');
 }
 

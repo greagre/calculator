@@ -32,9 +32,11 @@ function cmdName(c){
   if(c >= 0x60 && c <= 0x6D) return 'П→X ' + REGS[c & 15];
   if(c >= 0x70 && c <= 0x7D) return 'К x≠0 ' + REGS[c & 15];
   if(c >= 0x80 && c <= 0x8D) return 'К БП ' + REGS[c & 15];
-  if(c >= 0x90 && c <= 0x9D) return 'К x≥0 ' + REGS[c & 15];
+  if(c >= 0x90 && c <= 0x9D) return 'К x≤0 ' + REGS[c & 15];
   if(c >= 0xA0 && c <= 0xAD) return 'К ПП ' + REGS[c & 15];
+  if(c >= 0xB0 && c <= 0xBD) return 'К X→П ' + REGS[c & 15];
   if(c >= 0xC0 && c <= 0xCD) return 'К x<0 ' + REGS[c & 15];
+  if(c >= 0xD0 && c <= 0xDD) return 'К П→X ' + REGS[c & 15];
   if(c >= 0xE0 && c <= 0xED) return 'К x=0 ' + REGS[c & 15];
   return '?';
 }
@@ -129,7 +131,7 @@ var PROGS = [
     formula:'d = √((x₂−x₁)² + (y₂−y₁)²)',
     input:[['R1','x₂'], ['R2','x₁'], ['R3','y₂'], ['R4','y₁']],
     output:'X — длина',
-    check:'(1;2) и (8;4) → 7.2801098',
+    check:'(1;2) и (8;4) → 7.2801099',
     data:{ 1:8, 2:1, 3:4, 4:2 },
     note:'Переходов нет, поэтому адреса одинаковы в любом формате записи.',
     codes:[0x61,0x62,0x11,0x22,0x63,0x64,0x11,0x22,0x10,0x21,0x50]

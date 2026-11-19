@@ -3,12 +3,15 @@
 
 /* ============================================================
    Электроника Б3-34 — логика
-   v5: исправлен косвенный переход К x≤0 (было x≥0) — по руководству
-       команда 9r переходит при X ≤ 0, а не при X ≥ 0.
-       Добавлены подписи косвенных пересылок К X→П r и К П→X r.
+   v6: условные переходы приведены к руководству Б3-34:
+       условие ИСТИННО  -> следующая команда,
+       условие ЛОЖНО    -> переход по адресу.
+       То же правило применено к косвенным 7r / 9r / Cr / Er.
+       Косвенный 9r подписан «К x≥0» (в v5 было ошибочно «К x≤0»).
+       Демо «НОД» переписано: F x≠0 / F x≥0 вместо F x=0 / F x<0.
+   v5: подписи косвенных пересылок К X→П r и К П→X r.
    v4: переходы занимают ТРИ ячейки — команда + две цифры адреса
        (десятки, единицы), как у настоящего Б3-34.
-       Исправлены условные переходы (в v2 были инвертированы).
        Темп ~5 шагов/с, 8 значащих цифр + ЕГГОГ, панель регистров.
    ============================================================ */
 
@@ -147,7 +150,7 @@ function cmdName(c){
   if(c >= 0x60 && c <= 0x6D) return 'П→X ' + REG_NAMES[c & 15];
   if(c >= 0x70 && c <= 0x7D) return 'К x≠0 ' + REG_NAMES[c & 15];
   if(c >= 0x80 && c <= 0x8D) return 'К БП ' + REG_NAMES[c & 15];
-  if(c >= 0x90 && c <= 0x9D) return 'К x≤0 ' + REG_NAMES[c & 15];
+  if(c >= 0x90 && c <= 0x9D) return 'К x≥0 ' + REG_NAMES[c & 15];
   if(c >= 0xA0 && c <= 0xAD) return 'К ПП ' + REG_NAMES[c & 15];
   if(c >= 0xB0 && c <= 0xBD) return 'К X→П ' + REG_NAMES[c & 15];
   if(c >= 0xC0 && c <= 0xCD) return 'К x<0 ' + REG_NAMES[c & 15];
@@ -622,8 +625,9 @@ function runStep(){
   }
   if(code === 0x54){ ST.ip++; return 'cont'; }
 
-  /* Условные переходы: три ячейки. Условие истинно -> идём по адресу,
-     ложно -> пропускаем команду и две цифры адреса. */
+  /* Условные переходы: три ячейки.
+     У руководства Б3-34 условие ИСТИННО -> выполняется следующая команда,
+     условие ЛОЖНО -> переход по записанному адресу. */
   if(code === 0x57 || code === 0x59 || code === 0x5C || code === 0x5E){
     addr = jumpAddr(ST.ip);
     if(addr < 0) return badAddress();
@@ -632,11 +636,12 @@ function runStep(){
     else if(code === 0x59) ok = (ST.X >= 0);
     else if(code === 0x5C) ok = (ST.X < 0);
     else ok = (ST.X === 0);
-    ST.ip = ok ? addr : (ST.ip + 3) % 98;
+    ST.ip = ok ? ((ST.ip + 3) % 98) : addr;
     return 'jump';
   }
 
-  /* Циклы L0–L3: тоже три ячейки */
+  /* Циклы L0–L3: тоже три ячейки.
+     Регистр уменьшается; пока не ноль — переход по адресу. */
   if(code === 0x5D || code === 0x5B || code === 0x58 || code === 0x5A){
     addr = jumpAddr(ST.ip);
     if(addr < 0) return badAddress();
@@ -652,11 +657,12 @@ function runStep(){
   if(hi === 0xB){ ST.R[modAddr(ST.R[lo], lo) % 14] = norm(ST.X); ST.ip++; return 'cont'; }
   if(hi === 0xD){ pushValue(ST.R[modAddr(ST.R[lo], lo) % 14]); ST.ip++; return 'cont'; }
 
-  if(hi === 7){ if(ST.X !== 0){ ST.ip = modAddr(ST.R[lo], lo); } else { ST.ip++; } return 'jump'; }
-  /* 9r по руководству — переход при X ≤ 0 (было ошибочно X ≥ 0) */
-  if(hi === 9){ if(ST.X <= 0){ ST.ip = modAddr(ST.R[lo], lo); } else { ST.ip++; } return 'jump'; }
-  if(hi === 0xC){ if(ST.X < 0){ ST.ip = modAddr(ST.R[lo], lo); } else { ST.ip++; } return 'jump'; }
-  if(hi === 0xE){ if(ST.X === 0){ ST.ip = modAddr(ST.R[lo], lo); } else { ST.ip++; } return 'jump'; }
+  /* Косвенные условные: то же правило — истина ведёт к следующей команде.
+     7r = К x≠0, 9r = К x≥0, Cr = К x<0, Er = К x=0. */
+  if(hi === 7){ if(ST.X !== 0){ ST.ip++; } else { ST.ip = modAddr(ST.R[lo], lo); } return 'jump'; }
+  if(hi === 9){ if(ST.X >= 0){ ST.ip++; } else { ST.ip = modAddr(ST.R[lo], lo); } return 'jump'; }
+  if(hi === 0xC){ if(ST.X < 0){ ST.ip++; } else { ST.ip = modAddr(ST.R[lo], lo); } return 'jump'; }
+  if(hi === 0xE){ if(ST.X === 0){ ST.ip++; } else { ST.ip = modAddr(ST.R[lo], lo); } return 'jump'; }
 
   if(code >= 0x26 && code <= 0x2A){ setErr(); ST.run = false; return 'stop'; }
   if(code >= 0x30 && code <= 0x3B){ setErr(); ST.run = false; return 'stop'; }
@@ -1150,6 +1156,7 @@ function exportTXT(){
   parts.push('ЭЛЕКТРОНИКА Б3-34 — листинг программ');
   parts.push('сохранено: ' + new Date().toLocaleString('ru-RU'));
   parts.push('переход занимает 3 шага: команда + десятки адреса + единицы адреса');
+  parts.push('условие выполняется — идём дальше, не выполняется — переход по адресу');
   parts.push('формат строки: АДРЕС: КОД  НАЗВАНИЕ КОМАНДЫ');
   parts.push('');
   parts.push(listProgram('Текущая программа', ST.prog));
@@ -1479,7 +1486,9 @@ function loadDemo2(){
 
 function loadDemo3(){
   /* НОД четырёх чисел (R1..R4), алгоритм Евклида вычитанием.
-     Главная 00-14, подпрограмма НОД с адреса 20. Всего 41 ячейка. */
+     Главная 00-14, подпрограмма НОД с адреса 20. Всего 41 ячейка.
+     Условия записаны по руководству: F x≠0 и F x≥0 — переход идёт,
+     когда условие НЕ выполняется. */
   loadCodes([
     0x53,0x02,0x00,   /* 00: ПП 20 */
     0x63,             /* 03: П→X 3 */
@@ -1496,8 +1505,8 @@ function loadDemo3(){
     0x61,             /* 20: П→X 1 */
     0x62,             /* 21: П→X 2 */
     0x11,             /* 22: − */
-    0x5E,0x04,0x00,   /* 23: F x=0 -> 40 */
-    0x5C,0x03,0x03,   /* 26: F x<0 -> 33 */
+    0x57,0x04,0x00,   /* 23: F x≠0 -> ложно, переход на 40 (В/О) */
+    0x59,0x03,0x03,   /* 26: F x≥0 -> ложно, переход на 33 */
     0x41,             /* 29: X→П 1 */
     0x51,0x02,0x00,   /* 30: БП 20 */
     0x62,             /* 33: П→X 2 */
@@ -1615,7 +1624,7 @@ if(fi) fi.addEventListener('change', function(){
   render();
   if(had){
     hint('Восстановлена последняя программа и регистры. Темп: ' + (ST.fast ? 'быстрый' : 'оригинал (~5 шагов/с)') +
-         '. Переходы теперь занимают три шага, как у оригинала.');
+         '. Переходы занимают три шага, как у оригинала.');
   }
 })();
 

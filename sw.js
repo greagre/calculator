@@ -1,7 +1,7 @@
 // Service worker: кэширует приложение, чтобы работало и без интернета.
 // Версия кэша поднимается при каждом обновлении кода — тогда старая копия
 // гарантированно выбрасывается и подтягивается новая.
-const CACHE = 'calculator-v22';
+const CACHE = 'calculator-v23';
 const ASSETS = [
   './',
   './index.html',
@@ -18,6 +18,7 @@ const ASSETS = [
   './b3-34-panel.js',
   './b3-34-ui.js',
   './b3-34-work.js',
+  './b3-34-polish.js',
   './catalog.js',
   './b3-34-v2.html',
   './b3-34-v3.html',
@@ -27,6 +28,7 @@ const ASSETS = [
   './b3-34-v7.html',
   './b3-34-v8.html',
   './b3-34-v9.html',
+  './b3-34-v10.html',
   './b3-34-classic.html',
   './b3-34-export.js',
   './b3-34-txt.html',

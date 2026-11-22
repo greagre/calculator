@@ -1,5 +1,5 @@
 /* ============================================================
-   b3-34-ui.js — интерфейс v9 (ревизия 2)
+   b3-34-ui.js — интерфейс v10 (ревизия 3)
    • два режима внизу: Работа и Учёба (сегмент)
    • Шаг / Авто / 00 живут ТОЛЬКО в Учёбе
    • ☰ — библиотека сбоку (программы и файлы), ⋯ — кнопки по группам
@@ -8,11 +8,11 @@
    • маркер ▶ у текущей строки листинга + автопрокрутка
    • темп переключения разделов: по шагу, 1/2/5/10 с или только вручную
 
-   РЕВИЗИЯ 2 — исправлено главное раздражение:
-   разделы листаются ТОЛЬКО когда идёт настоящий прогон
-   (нажато «⏵ Авто»). Раньше таймер показа запускался сразу
-   при входе в Учёбу и гонял экраны вхолостую, а полоса
-   заполнялась без остановки. Теперь в простое всё стоит.
+   РЕВИЗИЯ 2: разделы листаются ТОЛЬКО когда идёт настоящий прогон
+   (нажато «⏵ Авто»). В простое экраны стоят, полоса не заполняется.
+
+   РЕВИЗИЯ 3: разделов стало четыре — Калькулятор, Регистры, Программа,
+   Журнал. Порядок листания и режим «Работа» учитывают новый раздел.
 
    Ядро b3-34.js, b3-34-fix.js и b3-34-follow.js не изменяются.
    Откат — открыть b3-34-v8.html.
@@ -63,8 +63,8 @@
       '#pnl9 #flwBar{position:static!important;margin:0!important;padding:0!important;background:transparent!important;'
         + 'border:0!important;box-shadow:none!important;display:flex;flex-direction:column;gap:5px;min-width:0}',
       '#pnl9 .flwchk{display:none!important}',
-      '#pnl9 .flwtabs{display:flex;gap:5px;margin:0!important}',
-      '#pnl9 .flwtabs button{flex:1 1 0;min-width:0;padding:8px 2px;font-size:12px;border-color:#DCDCD5;'
+      '#pnl9 .flwtabs{display:flex;gap:4px;margin:0!important}',
+      '#pnl9 .flwtabs button{flex:1 1 0;min-width:0;padding:8px 1px;font-size:11px;border-color:#DCDCD5;'
         + 'background:#F1F0EA;color:#1B1B1B}',
       '#pnl9 .flwtabs button.on{background:#2E7D32;border-color:#2E7D32;color:#fff}',
       '#pnl9 .dbgbar{display:flex!important;flex-wrap:nowrap!important;gap:5px;margin:0!important;min-width:0}',
@@ -157,6 +157,10 @@
       'body.light .sheetbox{background:#FFFFFF;color:#1B1B1B}',
       'body.light .sheettop{color:#2E7D32}',
       'body.light .sheetitem{background:#F7F6F2;color:#1B1B1B;border-color:#E4E3DC}',
+      /* зеркало регистров в светлой теме */
+      'body.light .regsframe{background:#FFFFFF;border:1px solid #DCDCD5}',
+      'body.light .fld.regs{background:#FFFFFF;border-color:#DCDCD5}',
+      'body.light .fld.regs>.fldh{background:#EFEEE8;color:#2E7D32;border-color:#DCDCD5}',
 
       /* --- тёмная тема для панели (если выберут) --- */
       'body:not(.light) #pnl9{background:#191b17;border-top-color:#3c4238}',
@@ -175,7 +179,7 @@
 
       /* --- режим Работа: разделы и шаги не нужны --- */
       'body.mode-work #flwBar{display:none!important}',
-      'body.mode-work .fld[data-f="prog"],body.mode-work .fld[data-f="log"]{display:none!important}',
+      'body.mode-work .fld[data-f="prog"],body.mode-work .fld[data-f="log"],body.mode-work .fld[data-f="regs"]{display:none!important}',
       'body.mode-work .fld[data-f="calc"]{display:block!important}',
       'body.mode-work .fld[data-f="calc"]>.fldh{display:none!important}',
 
@@ -452,14 +456,14 @@
       var f = document.getElementById('flwFollow');
       if(f) f.checked = (turn === 'step');
     }
-    var order = ['calc', 'prog', 'log'];
+    var order = ['calc', 'regs', 'prog', 'log'];
     function nextSection(){
       if(!tabs) return;
       var on = tabs.querySelector('button.on');
       var cur = on ? on.getAttribute('data-s') : 'calc';
       var i = order.indexOf(cur);
       if(i < 0) i = 0;
-      var b = tabs.querySelector('[data-s="' + order[(i + 1) % 3] + '"]');
+      var b = tabs.querySelector('[data-s="' + order[(i + 1) % order.length] + '"]');
       if(b) b.click();
     }
 

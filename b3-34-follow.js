@@ -1,25 +1,19 @@
 /* ============================================================
-   b3-34-follow.js — четыре экрана (ревизия 11)
+   b3-34-follow.js — четыре экрана (ревизия 12)
 
-   ЧТО БЫЛО СЛОМАНО
-   В ревизии 9 остался скрытый переключатель «по одному» (#flwFold),
-   включённый по умолчанию. В сетке разделов стояло условие
-   (foldOn() || k === name), то есть при включённом переключателе ВСЕ
-   четыре раздела получали data-on="1" и были раскрыты одновременно.
-   Переключение кнопкой лишь прокручивало страницу — экран не менялся.
-   Отсюда и «разделы не переключаются даже вручную».
+   ЧТО БЫЛО СЛОМАНО В РЕВИЗИИ 11
+   Карточка раздела (.fld) попадала во flex-контейнер и сжималась
+   по содержимому: стек брал ширину по тексту, а сетка R0–Rd
+   строилась тремя колонками по содержимому. Отсюда «узкие овалы
+   в левом столбце» и пустая правая половина экрана.
 
    ЧТО ТЕПЕРЬ
-   • Показывается ровно один экран, остальные скрыты. Кнопки внизу
-     переключают карточки, а не прокручивают страницу.
-   • Регистры перерисованы: стек X/Y/Z/T/X1 — строками с крупным
-     значением, R0–Rd — сеткой 3/4/5 в ряд в зависимости от ширины.
-     Значения читаются из настоящих #stack и #regs.
-   • Листание по шагам: каждая новая строка журнала = следующий экран
-     по кругу Числа → Регистры → Код → Журнал → Числа.
-   • Таймерные режимы (1/2/5/10 с) листают только пока идут шаги.
-   • Своё нажатие по кнопке раздела приостанавливает листание на 8 с.
-   • Маркер ▶ у выполняемой строки в листинге — здесь же, в стилях.
+   • .fld принудительно занимает всю ширину (width:100%, flex:0 0 auto).
+   • Регистры — сетка 5 в ряд на всю ширину, квадратные ячейки:
+     стек X·Y·Z·T·X1 одной строкой, R0–Rd тремя строками по пять.
+   • Значение крупное, моноширинное, с автоуменьшением для длинных
+     чисел — без обрезки многоточием.
+   • Показывается ровно один экран из четырёх.
 
    Ядро b3-34.js и b3-34-fix.js не изменяются.
    ============================================================ */
@@ -43,12 +37,12 @@
     s.id = 'flwStyle';
     s.textContent = [
       /* панель разделов */
-      '.flw{margin:0;padding:0;display:flex;flex-direction:column;gap:5px;min-width:0}',
+      '.flw{margin:0;padding:0;display:flex;flex-direction:column;gap:5px;min-width:0;width:100%}',
       '.flwchk{display:none!important}',
-      '.flwtabs,.flw .flwtabs{display:flex;gap:5px;margin:0}',
+      '.flwtabs,.flw .flwtabs{display:flex;gap:5px;margin:0;width:100%}',
       '.flwtabs button,#pnl9 .flwtabs button{flex:1 1 0;min-width:0;min-height:44px;'
-        + 'padding:10px 2px;border-radius:10px;border:1px solid #DCDCD5;background:#F1F0EA;'
-        + 'color:#1B1B1B;font-family:inherit;font-size:13px;font-weight:600;letter-spacing:0;'
+        + 'padding:9px 1px;border-radius:10px;border:1px solid #DCDCD5;background:#F1F0EA;'
+        + 'color:#1B1B1B;font-family:inherit;font-size:12px;font-weight:600;letter-spacing:0;'
         + 'line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:clip;'
         + 'touch-action:manipulation}',
       '.flwtabs button.on,#pnl9 .flwtabs button.on{background:#2E7D32;border-color:#2E7D32;'
@@ -64,8 +58,10 @@
       '#pnl9 .dbgbar .step{background:#2E7D32;border-color:#2E7D32;color:#fff}',
       'body.mode-work #pnl9 .dbgbar{display:none!important}',
 
-      /* карточки разделов: виден ровно один */
-      '.fld{background:#fff;border:1px solid #DCDCD5;border-radius:14px;margin:0 0 10px;overflow:hidden}',
+      /* карточки разделов: виден ровно один, ширина — вся */
+      '.fld{background:#fff;border:1px solid #DCDCD5;border-radius:14px;margin:0 0 10px;'
+        + 'overflow:hidden;width:100%!important;max-width:100%!important;'
+        + 'box-sizing:border-box;flex:0 0 auto}',
       '.fld>.fldh{display:none}',
       '.fld[data-on="0"]{display:none!important}',
       '.fld.calc{background:transparent;border:0;overflow:visible;margin:0 0 10px}',
@@ -73,31 +69,33 @@
       'body.light .fld.on-air{box-shadow:0 0 0 2px #2E7D32 inset}',
 
       /* ---- регистры ---- */
-      '.rgwrap{padding:10px 10px 14px}',
-      '.rgsec{color:#5A5A5A;font-size:10.5px;letter-spacing:.9px;margin:0 2px 7px}',
-      '.rgsec~.rgsec{margin-top:16px}',
-      '.rglist{display:flex;flex-direction:column;gap:5px}',
-      '.rgrow{display:flex;align-items:baseline;justify-content:space-between;gap:10px;'
-        + 'background:#F7F6F2;border:1px solid #E4E3DC;border-radius:10px;padding:9px 12px}',
-      '.rgrow i{font-style:normal;color:#6B6B63;font-size:12px;font-weight:700;letter-spacing:.5px}',
-      '.rgrow b{color:#1B1B1B;font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:18px;'
-        + 'font-weight:700;line-height:1.15;text-align:right;font-variant-numeric:tabular-nums;'
-        + 'word-break:break-all}',
-      '.rggrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}',
-      '@media(min-width:430px){.rggrid{grid-template-columns:repeat(4,minmax(0,1fr))}}',
-      '@media(min-width:560px){.rggrid{grid-template-columns:repeat(5,minmax(0,1fr))}}',
-      '.rgcell{background:#F7F6F2;border:1px solid #E4E3DC;border-radius:10px;'
-        + 'padding:8px 4px 9px;text-align:center;overflow:hidden}',
+      '.rgwrap{padding:10px 10px 14px;width:100%!important;max-width:100%!important;'
+        + 'box-sizing:border-box;display:block}',
+      '.rgsec{color:#5A5A5A;font-size:10.5px;letter-spacing:.9px;margin:0 2px 7px;'
+        + 'display:block;font-weight:700}',
+      '.rgsec~.rgsec{margin-top:14px}',
+      '.rggrid,.rglist{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;'
+        + 'gap:6px!important;width:100%!important;max-width:100%!important;box-sizing:border-box}',
+      '.rgcell{display:flex!important;flex-direction:column;align-items:center;'
+        + 'justify-content:center;gap:1px;width:auto!important;min-width:0;'
+        + 'aspect-ratio:1/1;box-sizing:border-box;background:#F7F6F2;'
+        + 'border:1px solid #E4E3DC;border-radius:10px;padding:2px;overflow:hidden}',
       '.rgcell i{display:block;font-style:normal;color:#6B6B63;font-size:10px;font-weight:700;'
-        + 'letter-spacing:.4px;margin-bottom:2px}',
+        + 'letter-spacing:.3px;line-height:1;text-align:center;width:100%}',
       '.rgcell b{display:block;color:#1B1B1B;font-family:ui-monospace,"SF Mono",Menlo,monospace;'
-        + 'font-size:15px;font-weight:700;line-height:1.2;font-variant-numeric:tabular-nums;'
+        + 'font-size:15px;font-weight:700;line-height:1.1;text-align:center;'
+        + 'font-variant-numeric:tabular-nums;max-width:100%;overflow:hidden;'
         + 'word-break:break-all}',
       '.rgcell b.sm{font-size:12px}',
-      '.rgcell b.xs{font-size:10.5px}',
-      'body:not(.light) .rgrow,body:not(.light) .rgcell{background:#20241c;border-color:#3a4232}',
-      'body:not(.light) .rgsec,body:not(.light) .rgrow i,body:not(.light) .rgcell i{color:#7fa88a}',
-      'body:not(.light) .rgrow b,body:not(.light) .rgcell b{color:#8dffab}',
+      '.rgcell b.xs{font-size:9.5px}',
+      '.rgcell.ch{border-color:#9CC48C;background:#E6F2DF}',
+      'body:not(.light) .rgcell{background:#20241c;border-color:#3a4232}',
+      'body:not(.light) .rgsec,body:not(.light) .rgcell i{color:#7fa88a}',
+      'body:not(.light) .rgcell b{color:#8dffab}',
+      'body:not(.light) .rgcell.ch{background:#2b3d27;border-color:#5d8a4e}',
+
+      /* на очень узком экране — четыре в ряд, чтобы цифры остались крупными */
+      '@media(max-width:340px){.rggrid,.rglist{grid-template-columns:repeat(4,minmax(0,1fr))!important}}',
 
       /* ---- маркер текущей команды ---- */
       '#dbgProg{position:relative}',
@@ -123,10 +121,10 @@
       if(lab) val = txt.replace(lab, '').trim();
     }
     if(!val){
-      var m = /^(.*?)([-+]?\d[\d\s.,eE+\-]*|∞)$/.exec(txt);
+      var m = /^(.*?)([-+]?\d[\d\s.,eE+\-]*|∞|ЕГГОГ)$/.exec(txt);
       if(m){ if(!lab) lab = m[1].trim(); val = m[2].trim(); }
     }
-    return { lab: lab, val: val || '—' };
+    return { lab: lab, val: val || '0' };
   }
 
   function cells(el){
@@ -136,35 +134,36 @@
     return out;
   }
 
+  function sizeCls(v){
+    if(v.length > 12) return 'xs';
+    if(v.length > 8) return 'sm';
+    return '';
+  }
+
+  /* одна ячейка-квадрат */
+  function cellBox(it, active){
+    var d = document.createElement('div');
+    d.className = 'rgcell' + (active ? ' ch' : '');
+    var i = document.createElement('i');
+    i.textContent = it.lab || '—';
+    var b = document.createElement('b');
+    b.textContent = it.val;
+    var cls = sizeCls(it.val);
+    if(cls) b.className = cls;
+    d.appendChild(i); d.appendChild(b);
+    return d;
+  }
+
   function drawStack(host, items){
     host.innerHTML = '';
-    items.forEach(function(it){
-      var d = document.createElement('div');
-      d.className = 'rgrow';
-      var i = document.createElement('i');
-      i.textContent = it.lab || '—';
-      var b = document.createElement('b');
-      b.textContent = it.val;
-      if(it.val.length > 10) b.className = 'sm';
-      d.appendChild(i); d.appendChild(b);
-      host.appendChild(d);
+    items.forEach(function(it, idx){
+      host.appendChild(cellBox(it, idx === 0));   /* X — первый, его подсвечиваем */
     });
   }
 
   function drawGrid(host, items){
     host.innerHTML = '';
-    items.forEach(function(it){
-      var d = document.createElement('div');
-      d.className = 'rgcell';
-      var i = document.createElement('i');
-      i.textContent = it.lab || '—';
-      var b = document.createElement('b');
-      b.textContent = it.val;
-      if(it.val.length > 10) b.className = 'xs';
-      else if(it.val.length > 7) b.className = 'sm';
-      d.appendChild(i); d.appendChild(b);
-      host.appendChild(d);
-    });
+    items.forEach(function(it){ host.appendChild(cellBox(it, false)); });
   }
 
   function makeMirror(){
@@ -316,7 +315,7 @@
 
     setActive('calc');
 
-    /* ---- листание ---- */
+    /* ---- листание по шагам ---- */
     if(logEl){
       new MutationObserver(function(muts){
         var step = false;
@@ -338,7 +337,7 @@
       if(t === 'step' || t === 'off') return;
       var sec = parseFloat(t);
       if(!(sec > 0)) return;
-      if(Date.now() - lastStepAt > 1500) return;      /* прогон не идёт — стоим */
+      if(Date.now() - lastStepAt > 1500) return;
       if(Date.now() < pausedUntil) return;
       if(Date.now() - lastSwitchAt < sec * 1000) return;
       lastSwitchAt = Date.now();
@@ -352,10 +351,7 @@
       var i = barEl.querySelector('i');
       if(!i) return;
       var t = turnMode();
-      if(t === 'step' || t === 'off'){
-        i.style.width = '0';
-        return;
-      }
+      if(t === 'step' || t === 'off'){ i.style.width = '0'; return; }
       var sec = parseFloat(t);
       if(!(sec > 0)){ i.style.width = '0'; return; }
       var running = (Date.now() - lastStepAt) < 1500;

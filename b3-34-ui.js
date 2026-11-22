@@ -1,5 +1,5 @@
 /* ============================================================
-   b3-34-ui.js — интерфейс v9
+   b3-34-ui.js — интерфейс v9 (ревизия 2)
    • два режима внизу: Работа и Учёба (сегмент)
    • Шаг / Авто / 00 живут ТОЛЬКО в Учёбе
    • ☰ — библиотека сбоку (программы и файлы), ⋯ — кнопки по группам
@@ -7,6 +7,13 @@
    • счётчик шагов и полоса положения в программе
    • маркер ▶ у текущей строки листинга + автопрокрутка
    • темп переключения разделов: по шагу, 1/2/5/10 с или только вручную
+
+   РЕВИЗИЯ 2 — исправлено главное раздражение:
+   разделы листаются ТОЛЬКО когда идёт настоящий прогон
+   (нажато «⏵ Авто»). Раньше таймер показа запускался сразу
+   при входе в Учёбу и гонял экраны вхолостую, а полоса
+   заполнялась без остановки. Теперь в простое всё стоит.
+
    Ядро b3-34.js, b3-34-fix.js и b3-34-follow.js не изменяются.
    Откат — открыть b3-34-v8.html.
    ============================================================ */
@@ -74,11 +81,12 @@
       '#p9count .p9bar i{display:block;height:4px;width:0;background:#2E7D32;border-radius:3px;transition:width .18s}',
       '#p9count b{color:#1B1B1B;font-weight:600}',
 
-      /* полоса до смены раздела */
+      /* полоса до смены раздела — живёт только во время прогона */
       '#p9turn{height:2px;border-radius:2px;overflow:hidden;background:transparent}',
       '#p9turn i{display:block;height:2px;width:0;background:#2E7D32;border-radius:2px;opacity:.6}',
       '#p9turn.run i{animation:p9fill linear forwards;animation-duration:var(--p9dur,2000ms)}',
       '@keyframes p9fill{from{width:0}to{width:100%}}',
+      'body.mode-work #p9turn{display:none}',
 
       /* --- шторка ⋯ и библиотека ☰ --- */
       '.p9ov{position:fixed;inset:0;z-index:95;background:rgba(0,0,0,.45);display:none}',
@@ -190,6 +198,14 @@
   }
   function px(id, label, word){
     return '<button type="button" data-px="' + id + '" data-w="' + (word || '') + '">' + label + '</button>';
+  }
+
+  /* идёт ли настоящий прогон прямо сейчас */
+  function autoOn(){
+    var b = document.getElementById('dbgAuto');
+    if(!b) return false;
+    if(b.classList && b.classList.contains('on')) return true;
+    return /пауза/i.test(b.textContent || '');
   }
 
   /* ---------------- тема ---------------- */
@@ -446,19 +462,36 @@
       var b = tabs.querySelector('[data-s="' + order[(i + 1) % 3] + '"]');
       if(b) b.click();
     }
+
+    /* Смена разделов по времени идёт ТОЛЬКО во время настоящего прогона.
+       В простое таймер не крутится, полоса не заполняется, экраны стоят. */
     function schedule(){
       clearTimeout(turnTimer); turnTimer = null;
       var bar = document.getElementById('p9turn');
-      if(bar){ bar.classList.remove('run'); var i2 = bar.querySelector('i'); if(i2) i2.style.width = '0'; }
+      if(bar){
+        bar.classList.remove('run');
+        var i2 = bar.querySelector('i');
+        if(i2){ i2.style.animation = 'none'; i2.style.width = '0'; }
+      }
+
       if(mode !== 'study') return;
+
+      /* ещё ничего не запущено — тихо ждём нажатия «Авто» */
+      if(!autoOn()){
+        turnTimer = setTimeout(schedule, 600);
+        return;
+      }
+
       var sec = parseFloat(turn);
       if(!(sec > 0)) return;
+
       if(bar){
         bar.style.setProperty('--p9dur', (sec * 1000) + 'ms');
         void bar.offsetWidth;
         bar.classList.add('run');
       }
       turnTimer = setTimeout(function(){
+        if(!autoOn()){ schedule(); return; }
         if(Date.now() < pausedUntil){ schedule(); return; }
         nextSection();
         schedule();

@@ -1,16 +1,16 @@
 /* ============================================================
-   b3-34-follow.js — четыре раздела (v8)
+   b3-34-follow.js — четыре раздела (v9)
    Было три: «Числа и регистры», «Программа», «Журнал».
-     1. 🧮 Калькулятор — корпус: индикатор, стек, клавиши
-     2. 🔢 Регистры    — X, Y, Z, T, X1 и R0–Rd компактной сеткой
-     3. 📜 Программа   — листинг, текущий шаг, маршрут
-     4. 📋 Журнал      — что менялось на каждом шаге
+     1. Калькулятор — корпус: индикатор, стек, клавиши
+     2. Регистры    — X, Y, Z, T, X1 строками, R0–Rd крупной сеткой
+     3. Программа   — листинг, текущий шаг, маршрут
+     4. Журнал      — что менялось на каждом шаге
 
-   РЕВИЗИЯ 8: прежнее зеркало копировало разметку корпуса целиком, и в
-   отдельном контейнере ячейки растягивались на всю высоту — получались
-   длинные пустые «капсулы». Теперь значения читаются из #stack и #regs
-   и рисуются своими ячейками фиксированного размера (сетка 5 в ряд).
-   Ширина и высота заданы жёстко, тянуться нечему.
+   РЕВИЗИЯ 9: раздел регистров переделан. Пять узких ячеек в ряд на
+   телефоне читались плохо — значения поджимались и обрезались.
+   Теперь стек идёт строками (метка слева, значение справа крупно),
+   а регистры R0–Rd — сеткой по две в ряд, на широком экране по четыре.
+   Кнопки разделов стали выше и с крупной подписью.
 
    Ядро b3-34.js не трогается. Откат — b3-34-v8.html.
    ============================================================ */
@@ -27,11 +27,11 @@
       '.flw{position:sticky;top:0;z-index:40;background:#191b17;border:1px solid #3c4238;border-radius:14px;padding:8px;margin:12px 0 10px;box-shadow:0 8px 20px rgba(0,0,0,.5)}',
       '.flw .dbgbar{margin:0 0 8px}',
       '.flw .dbgpc{margin-left:auto}',
-      /* четыре кнопки разделов должны влезть в одну строку */
-      '.flwtabs{display:flex;gap:4px;margin:0 0 7px}',
-      '.flwtabs button{flex:1 1 0;min-width:0;background:#2b2f28;color:#cfd6c4;border:1px solid #454b3f;border-radius:9px;'
-        + 'padding:8px 1px;font-size:11px;font-family:inherit;line-height:1.1;white-space:nowrap;'
-        + 'overflow:hidden;text-overflow:ellipsis}',
+      /* четыре кнопки разделов: выше и с читаемой подписью */
+      '.flwtabs{display:flex;gap:5px;margin:0 0 8px}',
+      '.flwtabs button{flex:1 1 0;min-width:0;background:#2b2f28;color:#cfd6c4;border:1px solid #454b3f;'
+        + 'border-radius:10px;padding:10px 2px;min-height:42px;font-size:12.5px;font-family:inherit;'
+        + 'font-weight:600;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:clip}',
       '.flwtabs button:active{background:#3a4034}',
       '.flwtabs button.on{background:#4c7a41;border-color:#6f9c60;color:#eaffdc}',
       '.flwchk{display:inline-flex;align-items:center;gap:5px;color:#8b9382;font-size:11px;margin-right:10px}',
@@ -46,23 +46,35 @@
       '.fld.calc > .fldh{border-radius:12px;border:1px solid #3c4238;background:#20241d}',
       '.fld.calc[data-on="1"] > .case{margin-top:0}',
 
-      /* ---- регистры: своя компактная сетка, ничего не растягивается ---- */
+      /* ---- регистры: читаемая сетка, ничего не растягивается ---- */
       '.rgwrap{padding:4px 2px 8px}',
-      '.rghd{color:#8b9382;font-size:10px;letter-spacing:.8px;margin:0 2px 5px}',
-      '.rggrid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;margin:0 0 12px}',
-      '.rggrid:last-child{margin-bottom:0}',
-      '.rgcell{background:#20241c;border:1px solid #3a4232;border-radius:7px;padding:6px 3px 7px;'
-        + 'min-height:0;height:auto;text-align:center;overflow:hidden}',
-      '.rgcell i{display:block;font-style:normal;color:#7fa88a;font-size:9px;font-weight:700;'
-        + 'letter-spacing:.5px;margin-bottom:2px;line-height:1.2}',
+      '.rghd{color:#8b9382;font-size:10px;letter-spacing:.8px;margin:0 2px 6px}',
+      /* стек — строками: метка слева, значение справа */
+      '.rglist{display:flex;flex-direction:column;gap:4px;margin:0 0 14px}',
+      '.rgrow{display:flex;align-items:center;justify-content:space-between;gap:12px;'
+        + 'background:#20241c;border:1px solid #3a4232;border-radius:9px;padding:8px 11px}',
+      '.rgrow i{font-style:normal;color:#7fa88a;font-size:12px;font-weight:700;letter-spacing:.6px}',
+      '.rgrow b{color:#8dffab;font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:18px;'
+        + 'font-weight:700;line-height:1.2;text-align:right;word-break:break-word;'
+        + 'text-shadow:0 0 7px rgba(141,255,171,.4)}',
+      /* регистры R0–Rd — по две в ряд */
+      '.rggrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}',
+      '.rgcell{background:#20241c;border:1px solid #3a4232;border-radius:9px;padding:9px 8px 10px;'
+        + 'min-height:0;height:auto;overflow:hidden}',
+      '.rgcell i{display:block;font-style:normal;color:#7fa88a;font-size:11px;font-weight:700;'
+        + 'letter-spacing:.6px;margin-bottom:3px;line-height:1.2}',
       '.rgcell b{display:block;color:#8dffab;font-family:ui-monospace,"SF Mono",Menlo,monospace;'
-        + 'font-size:13px;font-weight:700;line-height:1.25;white-space:nowrap;overflow:hidden;'
-        + 'text-overflow:ellipsis;text-shadow:0 0 7px rgba(141,255,171,.4)}',
+        + 'font-size:17px;font-weight:700;line-height:1.25;word-break:break-word;'
+        + 'text-shadow:0 0 7px rgba(141,255,171,.4)}',
+      '@media(min-width:520px){.rggrid{grid-template-columns:repeat(4,minmax(0,1fr))}}',
 
-      /* светлая тема для сетки регистров */
+      /* светлая тема для раздела регистров */
       'body.light .rghd{color:#5A5A5A}',
+      'body.light .rgrow{background:#F7F6F2;border-color:#E4E3DC}',
+      'body.light .rgrow i{color:#6B6B63}',
+      'body.light .rgrow b{color:#1B1B1B;text-shadow:none}',
       'body.light .rgcell{background:#F7F6F2;border-color:#E4E3DC}',
-      'body.light .rgcell i{color:#7A7A72}',
+      'body.light .rgcell i{color:#6B6B63}',
       'body.light .rgcell b{color:#1B1B1B;text-shadow:none}',
 
       /* подсветка раздела, к которому перешли */
@@ -80,18 +92,43 @@
     catch(e){ if(window.console) console.warn('follow: не построилось', e); }
   }
 
-  /* значения регистров: читаем текст из корпуса, рисуем своими ячейками */
+  /* значения: сначала пробуем <b> (метка), иначе разбираем текст ячейки */
   function readCells(el){
     var out = [];
     if(!el) return out;
     [].forEach.call(el.children, function(c){
       var b = c.querySelector('b');
-      var lab = b ? (b.textContent || '').trim() : '';
-      var all = (c.textContent || '').trim();
-      var val = lab ? all.replace(lab, '').trim() : all;
+      var lab = '';
+      var val = '';
+      if(b){
+        lab = (b.textContent || '').trim();
+        val = (c.textContent || '').trim();
+        if(lab) val = val.replace(lab, '').trim();
+      }else{
+        var t = (c.textContent || '').replace(/\s+/g, ' ').trim();
+        var m = /^([A-Za-zА-Яа-я0-9]{1,3})\s*([-\d.,eE+∞]+)$/.exec(t);
+        if(m){ lab = m[1]; val = m[2]; }
+        else { lab = c.getAttribute('data-l') || ''; val = t; }
+      }
+      if(!lab) lab = c.getAttribute('data-l') || c.getAttribute('title') || '';
       out.push({ lab: lab, val: val });
     });
     return out;
+  }
+
+  function drawStack(host, items){
+    host.innerHTML = '';
+    items.forEach(function(it){
+      var d = document.createElement('div');
+      d.className = 'rgrow';
+      var i = document.createElement('i');
+      i.textContent = it.lab;
+      var b = document.createElement('b');
+      b.textContent = it.val;
+      d.appendChild(i);
+      d.appendChild(b);
+      host.appendChild(d);
+    });
   }
 
   function drawGrid(host, items){
@@ -118,7 +155,7 @@
     h1.textContent = 'СТЕК X · Y · Z · T · X1';
 
     var st = document.createElement('div');
-    st.className = 'rggrid';
+    st.className = 'rglist';
 
     var h2 = document.createElement('div');
     h2.className = 'rghd';
@@ -140,7 +177,7 @@
       var key = JSON.stringify([sCells, rCells]);
       if(key === lastKey) return;
       lastKey = key;
-      drawGrid(st, sCells);
+      drawStack(st, sCells);
       drawGrid(rg, rCells);
     }
 
@@ -170,10 +207,10 @@
     fbar.id = 'flwBar';
     fbar.innerHTML =
       '<div class="flwtabs">'
-      + '<button data-s="calc" class="on" title="Калькулятор">🧮 Числа</button>'
-      + '<button data-s="regs" title="Регистры и стек">🔢 Регистры</button>'
-      + '<button data-s="prog" title="Программа">📜 Код</button>'
-      + '<button data-s="log"  title="Журнал и маршрут">📋 Журнал</button>'
+      + '<button data-s="calc" class="on" title="Калькулятор">Числа</button>'
+      + '<button data-s="regs" title="Регистры и стек">Регистры</button>'
+      + '<button data-s="prog" title="Программа">Код</button>'
+      + '<button data-s="log"  title="Журнал и маршрут">Журнал</button>'
       + '</div>'
       + '<label class="flwchk"><input type="checkbox" id="flwFollow" checked> следить за шагом</label>'
       + '<label class="flwchk"><input type="checkbox" id="flwFold" checked> по одному</label>';
@@ -194,10 +231,10 @@
       return w;
     }
 
-    var calcSec = wrap('calc', '🧮 Калькулятор', [caseEl, secs[0]]);
-    var regsSec = wrap('regs', '🔢 Регистры и стек', [makeMirror()]);
-    var progSec = wrap('prog', '📜 Программа', [secs[1], progEl]);
-    var logSec  = wrap('log',  '📋 Журнал и маршрут', [secs[2], logEl, secs[3], routeEl]);
+    var calcSec = wrap('calc', 'Калькулятор', [caseEl, secs[0]]);
+    var regsSec = wrap('regs', 'Регистры и стек', [makeMirror()]);
+    var progSec = wrap('prog', 'Программа', [secs[1], progEl]);
+    var logSec  = wrap('log',  'Журнал и маршрут', [secs[2], logEl, secs[3], routeEl]);
 
     tab.insertBefore(calcSec, dbg);
     tab.insertBefore(regsSec, dbg);
@@ -261,7 +298,7 @@
       busy = true;
       var i = order.indexOf(active);
       setActive(order[(i + 1) % order.length], true);
-      setTimeout(function(){ busy = false; }, 450);
+      setTimeout(function(){ busy = false; }, 400);
     }
 
     var obs = new MutationObserver(function(){ setTimeout(tick, 70); });

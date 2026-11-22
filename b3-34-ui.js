@@ -1,18 +1,18 @@
 /* ============================================================
-   b3-34-ui.js — интерфейс v10 (ревизия 3)
+   b3-34-ui.js — интерфейс v10 (ревизия 4)
    • два режима внизу: Работа и Учёба (сегмент)
-   • Шаг / Авто / 00 живут ТОЛЬКО в Учёбе
    • ☰ — библиотека сбоку (программы и файлы), ⋯ — кнопки по группам
-   • светлая обвязка вокруг калькулятора (корпус, индикатор и клавиши не тронуты)
+   • светлая обвязка вокруг калькулятора (корпус и клавиши не тронуты)
    • счётчик шагов и полоса положения в программе
-   • маркер ▶ у текущей строки листинга + автопрокрутка
-   • темп переключения разделов: по шагу, 1/2/5/10 с или только вручную
+   • маркер у текущей строки листинга + автопрокрутка
+   • темп переключения разделов: по шагу (по умолчанию), 1/2/5/10 с, вручную
 
-   РЕВИЗИЯ 2: разделы листаются ТОЛЬКО когда идёт настоящий прогон
-   (нажато «⏵ Авто»). В простое экраны стоят, полоса не заполняется.
-
-   РЕВИЗИЯ 3: разделов стало четыре — Калькулятор, Регистры, Программа,
-   Журнал. Порядок листания и режим «Работа» учитывают новый раздел.
+   РЕВИЗИЯ 4: переключение разделов снова идёт от РЕАЛЬНЫХ шагов, а не от
+   догадки о нажатой кнопке «Авто». Признак прогона — новая строка журнала
+   за последние 1,5 с. Поэтому листание работает и при «▶ Пуск» в Работе,
+   и при «⏵ Авто» в Учёбе. Разделы в Работе больше не прячутся целиком —
+   скрыта только строка Шаг/Авто/00, чтобы экраны было видно во время
+   прогона. По умолчанию выбран режим «по шагу» — как было раньше.
 
    Ядро b3-34.js, b3-34-fix.js и b3-34-follow.js не изменяются.
    Откат — открыть b3-34-v8.html.
@@ -25,10 +25,11 @@
 
   var mode  = g('b334.ui.mode', 'work');     /* work | study */
   var theme = g('b334.ui.theme', 'light');   /* light | dark | system */
-  var turn  = g('b334.ui.turn', '2');        /* step | 1 | 2 | 5 | 10 | off */
+  /* turn2 — новый ключ: у всех стартует «по шагу», старое значение не мешает */
+  var turn  = g('b334.ui.turn2', 'step');    /* step | 1 | 2 | 5 | 10 | off */
 
   var pnl = null, sheet = null, drawer = null;
-  var turnTimer = null, pausedUntil = 0, lastCur = null;
+  var turnTimer = null, pausedUntil = 0, lastCur = null, lastStepAt = 0;
 
   /* ---------------- стили ---------------- */
   function css(){
@@ -42,7 +43,7 @@
       '#help{display:none!important}',
       '#hint{font-size:11px!important;opacity:.75}',
 
-      /* --- обёртка раздела «Числа» не должна рисовать вторую рамку --- */
+      /* --- обёртка раздела «Калькулятор» не должна рисовать вторую рамку --- */
       '.fld.calc{background:transparent!important;border:0!important;overflow:visible!important}',
       '.fld.calc>.fldh{border-radius:12px}',
 
@@ -63,9 +64,9 @@
       '#pnl9 #flwBar{position:static!important;margin:0!important;padding:0!important;background:transparent!important;'
         + 'border:0!important;box-shadow:none!important;display:flex;flex-direction:column;gap:5px;min-width:0}',
       '#pnl9 .flwchk{display:none!important}',
-      '#pnl9 .flwtabs{display:flex;gap:4px;margin:0!important}',
-      '#pnl9 .flwtabs button{flex:1 1 0;min-width:0;padding:8px 1px;font-size:11px;border-color:#DCDCD5;'
-        + 'background:#F1F0EA;color:#1B1B1B}',
+      '#pnl9 .flwtabs{display:flex;gap:5px;margin:0!important}',
+      '#pnl9 .flwtabs button{flex:1 1 0;min-width:0;padding:10px 2px;min-height:42px;font-size:12.5px;'
+        + 'font-weight:600;border-color:#DCDCD5;background:#F1F0EA;color:#1B1B1B}',
       '#pnl9 .flwtabs button.on{background:#2E7D32;border-color:#2E7D32;color:#fff}',
       '#pnl9 .dbgbar{display:flex!important;flex-wrap:nowrap!important;gap:5px;margin:0!important;min-width:0}',
       '#pnl9 .dbgbar button{flex:1 1 0;min-width:0;padding:9px 2px}',
@@ -157,8 +158,6 @@
       'body.light .sheetbox{background:#FFFFFF;color:#1B1B1B}',
       'body.light .sheettop{color:#2E7D32}',
       'body.light .sheetitem{background:#F7F6F2;color:#1B1B1B;border-color:#E4E3DC}',
-      /* зеркало регистров в светлой теме */
-      'body.light .regsframe{background:#FFFFFF;border:1px solid #DCDCD5}',
       'body.light .fld.regs{background:#FFFFFF;border-color:#DCDCD5}',
       'body.light .fld.regs>.fldh{background:#EFEEE8;color:#2E7D32;border-color:#DCDCD5}',
 
@@ -177,11 +176,9 @@
       'body:not(.light) .p9sel select{background:#2b2f28;color:#cfd6c4;border-color:#454b3f}',
       'body:not(.light) .p9note{color:#8b9382}',
 
-      /* --- режим Работа: разделы и шаги не нужны --- */
-      'body.mode-work #flwBar{display:none!important}',
-      'body.mode-work .fld[data-f="prog"],body.mode-work .fld[data-f="log"],body.mode-work .fld[data-f="regs"]{display:none!important}',
-      'body.mode-work .fld[data-f="calc"]{display:block!important}',
-      'body.mode-work .fld[data-f="calc"]>.fldh{display:none!important}',
+      /* --- режим Работа: разделы остаются видны, строка Шаг/Авто/00 скрыта --- */
+      'body.mode-work #pnl9 .dbgbar{display:none!important}',
+      'body.mode-work #p9step{color:#1B1B1B}',
 
       '@media(min-width:760px){#pnl9{left:auto;right:14px;bottom:14px;width:560px;border:1px solid #DCDCD5;'
         + 'border-radius:14px}}'
@@ -204,12 +201,9 @@
     return '<button type="button" data-px="' + id + '" data-w="' + (word || '') + '">' + label + '</button>';
   }
 
-  /* идёт ли настоящий прогон прямо сейчас */
-  function autoOn(){
-    var b = document.getElementById('dbgAuto');
-    if(!b) return false;
-    if(b.classList && b.classList.contains('on')) return true;
-    return /пауза/i.test(b.textContent || '');
+  /* идёт ли прогон: новая строка журнала за последние 1,5 секунды */
+  function running(){
+    return (Date.now() - lastStepAt) < 1500;
   }
 
   /* ---------------- тема ---------------- */
@@ -261,7 +255,7 @@
     pnl.id = 'pnl9';
     pnl.innerHTML =
       '<div id="p9turn"><i></i></div>'
-      + '<div id="p9count" style="display:none">'
+      + '<div id="p9count">'
       +   '<span>шаг <b id="p9step">0</b></span>'
       +   '<span class="p9bar"><i id="p9fill"></i></span>'
       +   '<span id="p9pc">PC 00</span>'
@@ -388,7 +382,7 @@
     if(turnSel){
       turnSel.value = turn;
       turnSel.addEventListener('change', function(){
-        turn = this.value; s('b334.ui.turn', turn);
+        turn = this.value; s('b334.ui.turn2', turn);
         applyFollow(); schedule();
       });
     }
@@ -412,8 +406,8 @@
       syncProxies();
       var note = document.getElementById('p9note');
       if(note) note.textContent = mode === 'study'
-        ? 'Учёба: идём по программе шагами и смотрим, что меняется. В работе шагов нет — там калькулятор.'
-        : 'Работа: считаем и набираем программы. Для прогона по шагам переключись на «Учёба».';
+        ? 'Учёба: идём по программе шагами и смотрим, что меняется.'
+        : 'Работа: считаем и набираем программы. Шаги и «Авто» — в режиме «Учёба».';
       sheet.classList.add('on');
     }
     function closeSheet(){ sheet.classList.remove('on'); }
@@ -439,12 +433,6 @@
       [].forEach.call(pnl.querySelectorAll('.modeBtn'), function(b){
         b.classList.toggle('on', b.getAttribute('data-m') === mode);
       });
-      var cnt = document.getElementById('p9count');
-      if(cnt) cnt.style.display = (mode === 'study') ? 'flex' : 'none';
-      if(mode === 'work' && tabs){
-        var c = tabs.querySelector('[data-s="calc"]');
-        if(c) c.click();
-      }
       applyFollow();
       schedule();
       fit();
@@ -467,8 +455,8 @@
       if(b) b.click();
     }
 
-    /* Смена разделов по времени идёт ТОЛЬКО во время настоящего прогона.
-       В простое таймер не крутится, полоса не заполняется, экраны стоят. */
+    /* По шагу листает follow.js (каждая новая строка журнала).
+       По времени — этот таймер, и только пока идут настоящие шаги. */
     function schedule(){
       clearTimeout(turnTimer); turnTimer = null;
       var bar = document.getElementById('p9turn');
@@ -478,10 +466,9 @@
         if(i2){ i2.style.animation = 'none'; i2.style.width = '0'; }
       }
 
-      if(mode !== 'study') return;
+      if(turn === 'step' || turn === 'off') return;
 
-      /* ещё ничего не запущено — тихо ждём нажатия «Авто» */
-      if(!autoOn()){
+      if(!running()){
         turnTimer = setTimeout(schedule, 600);
         return;
       }
@@ -495,7 +482,7 @@
         bar.classList.add('run');
       }
       turnTimer = setTimeout(function(){
-        if(!autoOn()){ schedule(); return; }
+        if(!running()){ schedule(); return; }
         if(Date.now() < pausedUntil){ schedule(); return; }
         nextSection();
         schedule();
@@ -546,12 +533,26 @@
       look();
     }
 
-    var logEl = document.getElementById('dbgLog');
-    if(logEl){
-      var obsLog = new MutationObserver(function(){ updateCount(); });
+    /* ---- признак прогона: новые строки журнала ---- */
+    function wireRunning(){
+      var logEl = document.getElementById('dbgLog');
+      if(!logEl) return;
+      lastStepAt = Date.now();
+      var obsLog = new MutationObserver(function(){
+        lastStepAt = Date.now();
+        updateCount();
+        if(!turnTimer && turn !== 'step' && turn !== 'off') schedule();
+      });
       obsLog.observe(logEl, { childList: true });
+      var progEl = document.getElementById('dbgProg');
+      if(progEl){
+        new MutationObserver(function(){ lastStepAt = Date.now(); })
+          .observe(progEl, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+      }
     }
+
     watchProg();
+    wireRunning();
     updateCount();
     setInterval(updateCount, 700);
 
@@ -567,6 +568,10 @@
 
     applyFollow();
     applyMode();
+
+    [].forEach.call(pnl.querySelectorAll('.modeBtn'), function(b){
+      b.classList.toggle('on', b.getAttribute('data-m') === mode);
+    });
   }
 
   document.addEventListener('DOMContentLoaded', ready);

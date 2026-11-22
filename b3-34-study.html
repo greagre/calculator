@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Электроника Б3-34 — учёба</title>
+<meta name="theme-color" content="#F6F5F1">
+<link rel="stylesheet" href="b3-34.css?v=4">
+<style>
+/* страховка для экрана «Регистры»: если отладчик не поднялся,
+   ячейки рисуются этим же оформлением — тёмные плашки, зелёные цифры */
+.fld.regs .rgq{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;
+  gap:6px!important;width:100%!important;box-sizing:border-box}
+.fld.regs .rgqi{background:#20241c;border:1px solid #3a4232;border-radius:9px;
+  padding:7px 2px;text-align:center;min-width:0;overflow:hidden;box-sizing:border-box}
+.fld.regs .rgqi span{display:block;color:#7fa88a;font-size:10px;font-weight:700;
+  letter-spacing:.5px;line-height:1.2;margin:0 0 2px}
+.fld.regs .rgqi b{display:block;color:#8dffab;font-size:14px;font-weight:700;
+  font-family:ui-monospace,"SF Mono",Menlo,monospace;line-height:1.15;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  text-shadow:0 0 7px rgba(141,255,171,.4)}
+@media(max-width:345px){.fld.regs .rgq{grid-template-columns:repeat(4,minmax(0,1fr))!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="tabs">
+    <button data-tab="calc" class="on">🧮 Калькулятор</button>
+    <button data-tab="catalog">📚 Программы</button>
+  </div>
+
+  <div id="tabCalc">
+
+  <div class="case">
+    <div class="brand"><span>ЭЛЕКТРОНИКА</span><b>Б3-34 · учёба</b></div>
+    <div class="lcdbox">
+      <div class="lcd" id="lcd">0</div>
+      <div class="lcdrow"><span id="lMode">АВТ</span><span id="lAddr"></span><span id="lPref"></span></div>
+    </div>
+    <div class="stack" id="stack"></div>
+    <div class="regs" id="regs"></div>
+    <div class="pad" id="pad"></div>
+    <div class="panel" id="panel" style="display:none"></div>
+  </div>
+
+  <div class="tools">
+    <button id="btnRun" class="run">▶ Пуск программы</button>
+    <button id="btnStop" class="stop">⏹ Стоп</button>
+    <button id="btnSpeed">🐢 Темп: оригинал</button>
+    <button id="btnSound" class="on">🔊 Звук: вкл</button>
+    <button id="btnVoice" class="on">🗣 Голос: вкл</button>
+    <button id="btnMic">🎤 Сказать</button>
+    <button id="btnPick" class="prim">📥 Пример…</button>
+    <button id="btnHelp">❓ Справка</button>
+    <button id="btnReset">⏻ Сброс</button>
+    <button id="btnDemo" style="display:none">📥 Пример: n!</button>
+    <button id="btnDemo2" style="display:none">📐 Пример: отрезок</button>
+    <button id="btnDemo3" style="display:none">🔢 Пример: НОД</button>
+  </div>
+
+  <div class="hint" id="hint">RPN: сначала число, затем В↑ и второе число, потом операция. Например 5 В↑ 3 + → 8.</div>
+
+  <div class="mem">
+    <div class="lbl">ПРОГРАММЫ: ПАМЯТЬ И ФАЙЛЫ</div>
+    <div class="proglist" id="progList"></div>
+    <div class="memrow">
+      <button id="btnSaveProg" class="prim">💾 Сохранить программу</button>
+      <button id="btnImportFile">⬆ Загрузить файл</button>
+      <button id="btnExportJson">⬇ Файл JSON</button>
+      <button id="btnExportTxt">⬇ Файл TXT</button>
+    </div>
+    <div class="memnote">Список хранится в памяти браузера на этом телефоне. Файлы JSON/TXT сохраняются в «Загрузки» — их можно перенести на другое устройство и загрузить обратно.</div>
+    <input type="file" id="fileInput" accept=".json,.txt,application/json,text/plain" style="display:none">
+  </div>
+
+  <div class="help" id="help">
+    <h3>Что это за страница</h3>
+    <p><b>Работа</b> — считать и набирать программы. <b>Учёба</b> — разбирать выполнение по шагам: листинг с маркером, регистры, журнал и маршрут адресов. Четыре экрана: <code>Числа · Регистры · Код · Журнал</code>, виден всегда ровно один.</p>
+
+    <h3>Почему раньше регистры были овалами</h3>
+    <p>Страница подключала <code>b3-34-follow.js?v=12</code>, а сам файл к тому времени стал ревизией 14. Адрес остался прежним, поэтому телефон отдавал из кэша старый код: он копировал разметку корпуса и строил узкое зеркало в левом столбце.</p>
+    <p>Теперь подключены новые метки (<code>follow.js?v=15</code>, <code>ui.js?v=7</code>, <code>work.js?v=3</code>) — браузер скачивает свежие файлы. Раздел «Регистры» забирает готовый блок отладчика <code>#dbgRegs</code>: сетка пять в ряд, тёмные плашки, зелёные цифры — как в корпусе.</p>
+    <p><b>Страховка.</b> Если блок отладчика почему-то не появится, регистры нарисуются напрямую из состояния процессора (<code>B334.ST</code>) этой же сеткой. Пустых квадратов не будет в любом случае.</p>
+
+    <h3>Как смотреть выполнение</h3>
+    <p><b>1.</b> Внизу выбери <b>Учёба</b>. <b>2.</b> Открой <b>Код</b> — увидишь листинг с адресами и командами. <b>3.</b> Нажми <code>▶ Шаг</code> — маркер перейдёт на следующую строку. <b>4.</b> Нажми <code>Авто</code> — программа пойдёт сама, а экраны будут сменяться по шагам.</p>
+
+    <h3>Режимы</h3>
+    <p><b>Работа</b> — <code>▶ Пуск</code>, <code>Темп</code>, <code>Стоп</code>, <code>Программа</code>, <code>Сброс</code>. Строка <code>Шаг · Авто · На 00</code> в Работе скрыта: она относится к Учёбе.</p>
+    <p><b>Учёба</b> — <code>▶ Шаг</code>, <code>Авто</code>, <code>На 00</code> и четыре экрана.</p>
+    <p>Выбор программы в библиотеке сбрасывает выполнение (PC = 00) и возвращает в <b>Работу</b>.</p>
+
+    <h3>Темп смены экранов</h3>
+    <p>В меню <code>⋯</code> → «Меняются»: по шагу, каждую 1 / 2 / 5 / 10 секунд или только вручную. Таймерные режимы листают только пока идут шаги. Своё нажатие по кнопке экрана останавливает листание на 8 секунд.</p>
+
+    <h3>Как считать</h3>
+    <p>Обратная польская запись: <code>30</code> → <code>f</code> → <code>sin</code> даёт <code>0.5</code>. Сначала число, потом функция. <code>В↑</code> разделяет числа, <code>↔</code> меняет X и Y, <code>F◯</code> прокручивает стек.</p>
+    <p>Проверка стека: набери <code>45</code>, нажми <code>В↑</code>, затем <code>4</code> — в корпусе должно быть <code>X = 4</code>, <code>Y = 45</code>, а <code>+</code> даёт <code>49</code>. Если вместо этого получается <code>454</code>, значит набранное число не фиксировалось перед подъёмом стека — скажи, и я поправлю ядро.</p>
+
+    <h3>Регистры и ЕГГОГ</h3>
+    <p>Под стеком 14 регистров: <code>R0</code>–<code>R9</code>, <code>Ra</code>–<code>Rd</code>. Короткое нажатие — вызвать в X, долгое — записать X в регистр.</p>
+    <p><b>ЕГГОГ</b> — переполнение порядка, деление на ноль, √ из отрицательного, lg от нуля, arcsin/arccos вне [−1; 1].</p>
+
+    <h3>Проверка</h3>
+    <p>Функции: <code>30</code> → <code>f</code> → <code>sin</code> → <b>0.5</b>; <code>1000</code> → <code>f</code> → <code>lg</code> → <b>3</b>.</p>
+    <p>Регистры: нажми <code>Регистры</code> — пять квадратов в ряд на всю ширину, значения крупные.</p>
+    <p>Маркер: Учёба → Код → <code>▶ Шаг</code>. Слева от строки появится стрелка и пойдёт вниз.</p>
+
+    <h3>Две страницы проекта</h3>
+    <p><b>Основная</b> — <code>b3-34.html</code>: калькулятор и программы. <b>Эта</b> — <code>b3-34-study.html</code>: работа и учёба с разделами. Остальные файлы <code>b3-34-v2…v17</code> — архив, в работу не идут.</p>
+  </div>
+
+  </div><!-- /tabCalc -->
+
+  <div id="tabCatalog" style="display:none">
+    <input type="search" id="catSearch" class="catsearch" placeholder="Поиск по названию или коду команды: 61, √, НОД…">
+    <div class="catbar" id="catBar"></div>
+    <div class="catlist" id="catList"></div>
+  </div>
+
+</div>
+
+<div class="sheet" id="demoSheet">
+  <div class="sheetbox">
+    <div class="sheettop"><b>Готовые программы</b><button id="demoClose">✕</button></div>
+    <div class="sheetlist" id="demoList"></div>
+    <div class="sheetnote">Тот же список, что в боковой библиотеке. После выбора программа загрузится в калькулятор вместе с числами для проверки.</div>
+  </div>
+</div>
+
+<script>
+/* Однократная проверка формата записей: раньше переход занимал две ячейки,
+   теперь три (команда + десятки + единицы). */
+(function(){
+  try{
+    if(localStorage.getItem('b334.fmt') === '6') return;
+    var KEY = 'b334.state.v3';
+    var raw = localStorage.getItem(KEY);
+    var bad = false;
+    if(raw){
+      var o = JSON.parse(raw);
+      var p = (o && Array.isArray(o.prog)) ? o.prog : null;
+      if(p){
+        var J = {};
+        [0x51,0x53,0x57,0x59,0x5C,0x5E,0x5D,0x5B,0x58,0x5A].forEach(function(c){ J[c] = 1; });
+        for(var i = 0; i < p.length; i++){
+          if(J[p[i]]){
+            var a = p[i+1], b = p[i+2];
+            if(!(typeof a === 'number' && a >= 0 && a <= 9 && typeof b === 'number' && b >= 0 && b <= 9)){
+              bad = true;
+              break;
+            }
+            i += 2;
+          }
+        }
+      }
+    }
+    if(bad) localStorage.removeItem(KEY);
+    localStorage.setItem('b334.fmt', '6');
+  }catch(e){}
+})();
+</script>
+
+<script src="b3-34-fix.js?v=5"></script>
+<script src="b3-34-follow.js?v=15"></script>
+<script src="b3-34-ui.js?v=7"></script>
+<script src="b3-34-work.js?v=3"></script>
+
+<script>
+/* Страховка для раздела «Регистры»: если отладчик не появился,
+   рисуем ячейки сами — из состояния процессора, той же сеткой 5 в ряд. */
+(function(){
+  var NAMES = ['X','Y','Z','T','X1'];
+  var SUF = '0123456789abcd';
+
+  function paint(){
+    var fld = document.querySelector('.fld.regs');
+    if(!fld) return;
+    if(fld.querySelector('#dbgRegs')) return;       /* отладчик на месте — не мешаем */
+    var B = window.B334, st = B && B.ST;
+    if(!st) return;
+    var host = fld.querySelector('.rgq');
+    if(!host){
+      host = document.createElement('div');
+      host.className = 'rgq';
+      fld.appendChild(host);
+    }
+    var fmt = (B && typeof B.fmtNum === 'function')
+      ? function(v){ try{ return B.fmtNum(v); }catch(e){ return String(v); } }
+      : function(v){ return String(v); };
+    var html = '';
+    var i;
+    for(i = 0; i < NAMES.length; i++){
+      html += '<div class="rgqi"><span>' + NAMES[i] + '</span><b>'
+            + fmt(i === 0 ? st.X : i === 1 ? st.Y : i === 2 ? st.Z : i === 3 ? st.T : st.X1)
+            + '</b></div>';
+    }
+    var R = st.R || [];
+    for(i = 0; i < R.length; i++){
+      html += '<div class="rgqi"><span>R' + (SUF[i] || i) + '</span><b>'
+            + fmt(R[i]) + '</b></div>';
+    }
+    host.innerHTML = html;
+  }
+
+  setInterval(paint, 700);
+  if(document.readyState !== 'loading') setTimeout(paint, 800);
+  else document.addEventListener('DOMContentLoaded', function(){ setTimeout(paint, 800); });
+})();
+</script>
+
+<script>
+(function(){
+  var btns = document.querySelectorAll('.tabs button');
+  function show(id){
+    var tc = document.getElementById('tabCalc');
+    var tk = document.getElementById('tabCatalog');
+    if(tc) tc.style.display = (id === 'catalog') ? 'none' : '';
+    if(tk) tk.style.display = (id === 'catalog') ? '' : 'none';
+    for(var i = 0; i < btns.length; i++){
+      btns[i].className = (btns[i].getAttribute('data-tab') === id) ? 'on' : '';
+    }
+  }
+  for(var i = 0; i < btns.length; i++){
+    btns[i].addEventListener('click', function(){
+      show(this.getAttribute('data-tab'));
+      window.scrollTo(0, 0);
+    });
+  }
+})();
+</script>
+
+<script>
+/* Кнопка «Пример…»: список из catalog.js (window.B334Cat) */
+(function(){
+  var sheet = document.getElementById('demoSheet');
+  var list = document.getElementById('demoList');
+  var open = document.getElementById('btnPick');
+  var close = document.getElementById('demoClose');
+  if(!sheet || !list || !open) return;
+
+  function closeSheet(){ sheet.classList.remove('on'); }
+
+  function fill(){
+    list.innerHTML = '';
+    var cat = window.B334Cat;
+    if(!cat || !cat.progs || !cat.progs.length){
+      var d = document.createElement('div');
+      d.className = 'sheetnote';
+      d.textContent = 'Справочник не загрузился. Обнови страницу.';
+      list.appendChild(d);
+      return;
+    }
+    cat.progs.forEach(function(p){
+      var b = document.createElement('button');
+      b.className = 'sheetitem';
+
+      var ic = document.createElement('span');
+      ic.className = 'ic';
+      ic.textContent = p.icon || '📄';
+
+      var tx = document.createElement('span');
+      tx.className = 'tx';
+      var nm = document.createElement('span');
+      nm.textContent = p.title;
+      var sm = document.createElement('small');
+      sm.textContent = p.codes.length + ' шагов' + (p.check ? ' · ' + p.check : '');
+      tx.appendChild(nm);
+      tx.appendChild(sm);
+
+      b.appendChild(ic);
+      b.appendChild(tx);
+      b.addEventListener('click', function(){
+        closeSheet();
+        cat.load(p);
+      });
+      list.appendChild(b);
+    });
+  }
+
+  open.addEventListener('click', function(){
+    fill();
+    sheet.classList.add('on');
+  });
+  if(close) close.addEventListener('click', closeSheet);
+  sheet.addEventListener('click', function(e){ if(e.target === sheet) closeSheet(); });
+})();
+</script>
+</body>
+</html>

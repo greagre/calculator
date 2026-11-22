@@ -1,13 +1,16 @@
 /* ============================================================
-   b3-34-follow.js — режим трёх разделов (v6)
-   Складывает страницу в три «поля»:
-     1. Числа и регистры (сам калькулятор + состояние)
-     2. Программа (листинг, текущий шаг)
-     3. Журнал и маршрут
-   И переключает их при каждом шаге: сверху липкая панель,
-   а раздел меняется сам — как просил: «перемещение по трём
-   разным полям, перерисовка на каждом шаге».
-   Ядро b3-34.js не трогается. Откат — открыть v5.
+   b3-34-follow.js — четыре раздела (v7)
+   Было три: «Числа и регистры», «Программа», «Журнал».
+   Регистры при просмотре сжимались и читались плохо, поэтому
+   «Числа» разделены надвое:
+     1. 🧮 Калькулятор — корпус: индикатор, стек, клавиши
+     2. 🔢 Регистры    — X, Y, Z, T, X1 и R0–Rd крупным планом
+     3. 📜 Программа   — листинг, текущий шаг, маршрут
+     4. 📋 Журнал      — что менялось на каждом шаге
+   Регистры в разделе 2 не переносятся, а зеркалятся из корпуса:
+   ядро пишет в #stack и #regs, а зеркало повторяет их содержимое.
+   Поэтому ничего не ломается и значение всегда настоящее.
+   Ядро b3-34.js не трогается. Откат — b3-34-v8.html.
    ============================================================ */
 (function(){
   'use strict';
@@ -22,8 +25,11 @@
       '.flw{position:sticky;top:0;z-index:40;background:#191b17;border:1px solid #3c4238;border-radius:14px;padding:8px;margin:12px 0 10px;box-shadow:0 8px 20px rgba(0,0,0,.5)}',
       '.flw .dbgbar{margin:0 0 8px}',
       '.flw .dbgpc{margin-left:auto}',
-      '.flwtabs{display:flex;gap:6px;margin:0 0 7px}',
-      '.flwtabs button{flex:1;background:#2b2f28;color:#cfd6c4;border:1px solid #454b3f;border-radius:9px;padding:9px 3px;font-size:12px;font-family:inherit;line-height:1.1}',
+      /* четыре кнопки разделов должны влезть в одну строку */
+      '.flwtabs{display:flex;gap:4px;margin:0 0 7px}',
+      '.flwtabs button{flex:1 1 0;min-width:0;background:#2b2f28;color:#cfd6c4;border:1px solid #454b3f;border-radius:9px;'
+        + 'padding:8px 1px;font-size:11px;font-family:inherit;line-height:1.1;white-space:nowrap;'
+        + 'overflow:hidden;text-overflow:ellipsis}',
       '.flwtabs button:active{background:#3a4034}',
       '.flwtabs button.on{background:#4c7a41;border-color:#6f9c60;color:#eaffdc}',
       '.flwchk{display:inline-flex;align-items:center;gap:5px;color:#8b9382;font-size:11px;margin-right:10px}',
@@ -37,6 +43,10 @@
       '.fld.calc{background:transparent;border:0;overflow:visible}',
       '.fld.calc > .fldh{border-radius:12px;border:1px solid #3c4238;background:#20241d}',
       '.fld.calc[data-on="1"] > .case{margin-top:0}',
+      /* зеркало регистров: та же разметка, что в корпусе, но отдельным полем */
+      '.regsframe{padding:10px;border-radius:12px;overflow-x:auto}',
+      '.regsframe .rmsrc{display:block}',
+      '.regsframe .rmsrc + .rmsrc{margin-top:10px}',
       /* подсветка раздела, к которому перешли */
       '.fld.on-air{box-shadow:0 0 0 2px #5b8a4c inset}'
     ].join('\n');
@@ -52,6 +62,37 @@
     catch(e){ if(window.console) console.warn('follow: не построилось', e); }
   }
 
+  /* зеркало состояния: повторяет #stack и #regs из корпуса */
+  function makeMirror(){
+    var box = document.createElement('div');
+    box.className = 'regsframe case';
+    box.innerHTML = '<div class="rmsrc" data-src="stack"></div><div class="rmsrc" data-src="regs"></div>';
+    var dstStack = box.querySelector('[data-src="stack"]');
+    var dstRegs  = box.querySelector('[data-src="regs"]');
+    var lastS = '', lastR = '';
+
+    function sync(){
+      var srcStack = document.getElementById('stack');
+      var srcRegs  = document.getElementById('regs');
+      if(srcStack){
+        var h = srcStack.innerHTML;
+        if(h !== lastS){ lastS = h; dstStack.innerHTML = h; }
+      }
+      if(srcRegs){
+        var h2 = srcRegs.innerHTML;
+        if(h2 !== lastR){ lastR = h2; dstRegs.innerHTML = h2; }
+      }
+    }
+
+    var obs = new MutationObserver(sync);
+    [document.getElementById('stack'), document.getElementById('regs')].forEach(function(el){
+      if(el) obs.observe(el, { childList: true, subtree: true, characterData: true, attributes: true });
+    });
+    setInterval(sync, 800);
+    sync();
+    return box;
+  }
+
   function build(dbg, caseEl){
     if(document.getElementById('flwBar')) return;
     css();
@@ -64,22 +105,23 @@
     var routeEl= dbg.querySelector('#dbgRoute');
     var secs = [].slice.call(dbg.querySelectorAll('.dbgsec'));
 
-    /* 1. липкая панель: кнопки шага + переключатель разделов */
+    /* 1. липкая панель: кнопки шага + четыре раздела */
     var fbar = document.createElement('div');
     fbar.className = 'flw';
     fbar.id = 'flwBar';
     fbar.innerHTML =
       '<div class="flwtabs">'
-      + '<button data-s="calc" class="on">🧮 Числа</button>'
-      + '<button data-s="prog">📜 Программа</button>'
-      + '<button data-s="log">📋 Журнал</button>'
+      + '<button data-s="calc" class="on" title="Калькулятор">🧮 Числа</button>'
+      + '<button data-s="regs" title="Регистры и стек">🔢 Регистры</button>'
+      + '<button data-s="prog" title="Программа">📜 Код</button>'
+      + '<button data-s="log"  title="Журнал и маршрут">📋 Журнал</button>'
       + '</div>'
       + '<label class="flwchk"><input type="checkbox" id="flwFollow" checked> следить за шагом</label>'
       + '<label class="flwchk"><input type="checkbox" id="flwFold" checked> по одному</label>';
     tab.insertBefore(fbar, dbg);
     if(bar) fbar.appendChild(bar);
 
-    /* 2. три раздела */
+    /* 2. четыре раздела */
     function wrap(cls, title, nodes){
       var w = document.createElement('div');
       w.className = 'fld ' + cls;
@@ -93,17 +135,19 @@
       return w;
     }
 
-    var calcSec = wrap('calc', '🧮 Числа и регистры', [caseEl, secs[0], regsEl]);
+    var calcSec = wrap('calc', '🧮 Калькулятор', [caseEl, secs[0]]);
+    var regsSec = wrap('regs', '🔢 Регистры и стек', [regsEl, makeMirror()]);
     var progSec = wrap('prog', '📜 Программа', [secs[1], progEl]);
     var logSec  = wrap('log',  '📋 Журнал и маршрут', [secs[2], logEl, secs[3], routeEl]);
 
     tab.insertBefore(calcSec, dbg);
+    tab.insertBefore(regsSec, dbg);
     tab.insertBefore(progSec, dbg);
     tab.insertBefore(logSec, dbg);
     dbg.style.display = 'none';
 
-    var map = { calc: calcSec, prog: progSec, log: logSec };
-    var order = ['calc', 'prog', 'log'];
+    var map = { calc: calcSec, regs: regsSec, prog: progSec, log: logSec };
+    var order = ['calc', 'regs', 'prog', 'log'];
     var active = 'calc';
 
     function foldOn(){
@@ -157,7 +201,7 @@
       if(!logEl.querySelector('.dbgline')) return;
       busy = true;
       var i = order.indexOf(active);
-      setActive(order[(i + 1) % 3], true);
+      setActive(order[(i + 1) % order.length], true);
       setTimeout(function(){ busy = false; }, 450);
     }
 

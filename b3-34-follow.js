@@ -1,15 +1,17 @@
 /* ============================================================
-   b3-34-follow.js — четыре раздела (v7)
+   b3-34-follow.js — четыре раздела (v8)
    Было три: «Числа и регистры», «Программа», «Журнал».
-   Регистры при просмотре сжимались и читались плохо, поэтому
-   «Числа» разделены надвое:
      1. 🧮 Калькулятор — корпус: индикатор, стек, клавиши
-     2. 🔢 Регистры    — X, Y, Z, T, X1 и R0–Rd крупным планом
+     2. 🔢 Регистры    — X, Y, Z, T, X1 и R0–Rd компактной сеткой
      3. 📜 Программа   — листинг, текущий шаг, маршрут
      4. 📋 Журнал      — что менялось на каждом шаге
-   Регистры в разделе 2 не переносятся, а зеркалятся из корпуса:
-   ядро пишет в #stack и #regs, а зеркало повторяет их содержимое.
-   Поэтому ничего не ломается и значение всегда настоящее.
+
+   РЕВИЗИЯ 8: прежнее зеркало копировало разметку корпуса целиком, и в
+   отдельном контейнере ячейки растягивались на всю высоту — получались
+   длинные пустые «капсулы». Теперь значения читаются из #stack и #regs
+   и рисуются своими ячейками фиксированного размера (сетка 5 в ряд).
+   Ширина и высота заданы жёстко, тянуться нечему.
+
    Ядро b3-34.js не трогается. Откат — b3-34-v8.html.
    ============================================================ */
 (function(){
@@ -43,10 +45,26 @@
       '.fld.calc{background:transparent;border:0;overflow:visible}',
       '.fld.calc > .fldh{border-radius:12px;border:1px solid #3c4238;background:#20241d}',
       '.fld.calc[data-on="1"] > .case{margin-top:0}',
-      /* зеркало регистров: та же разметка, что в корпусе, но отдельным полем */
-      '.regsframe{padding:10px;border-radius:12px;overflow-x:auto}',
-      '.regsframe .rmsrc{display:block}',
-      '.regsframe .rmsrc + .rmsrc{margin-top:10px}',
+
+      /* ---- регистры: своя компактная сетка, ничего не растягивается ---- */
+      '.rgwrap{padding:4px 2px 8px}',
+      '.rghd{color:#8b9382;font-size:10px;letter-spacing:.8px;margin:0 2px 5px}',
+      '.rggrid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;margin:0 0 12px}',
+      '.rggrid:last-child{margin-bottom:0}',
+      '.rgcell{background:#20241c;border:1px solid #3a4232;border-radius:7px;padding:6px 3px 7px;'
+        + 'min-height:0;height:auto;text-align:center;overflow:hidden}',
+      '.rgcell i{display:block;font-style:normal;color:#7fa88a;font-size:9px;font-weight:700;'
+        + 'letter-spacing:.5px;margin-bottom:2px;line-height:1.2}',
+      '.rgcell b{display:block;color:#8dffab;font-family:ui-monospace,"SF Mono",Menlo,monospace;'
+        + 'font-size:13px;font-weight:700;line-height:1.25;white-space:nowrap;overflow:hidden;'
+        + 'text-overflow:ellipsis;text-shadow:0 0 7px rgba(141,255,171,.4)}',
+
+      /* светлая тема для сетки регистров */
+      'body.light .rghd{color:#5A5A5A}',
+      'body.light .rgcell{background:#F7F6F2;border-color:#E4E3DC}',
+      'body.light .rgcell i{color:#7A7A72}',
+      'body.light .rgcell b{color:#1B1B1B;text-shadow:none}',
+
       /* подсветка раздела, к которому перешли */
       '.fld.on-air{box-shadow:0 0 0 2px #5b8a4c inset}'
     ].join('\n');
@@ -62,33 +80,75 @@
     catch(e){ if(window.console) console.warn('follow: не построилось', e); }
   }
 
-  /* зеркало состояния: повторяет #stack и #regs из корпуса */
+  /* значения регистров: читаем текст из корпуса, рисуем своими ячейками */
+  function readCells(el){
+    var out = [];
+    if(!el) return out;
+    [].forEach.call(el.children, function(c){
+      var b = c.querySelector('b');
+      var lab = b ? (b.textContent || '').trim() : '';
+      var all = (c.textContent || '').trim();
+      var val = lab ? all.replace(lab, '').trim() : all;
+      out.push({ lab: lab, val: val });
+    });
+    return out;
+  }
+
+  function drawGrid(host, items){
+    host.innerHTML = '';
+    items.forEach(function(it){
+      var d = document.createElement('div');
+      d.className = 'rgcell';
+      var i = document.createElement('i');
+      i.textContent = it.lab;
+      var b = document.createElement('b');
+      b.textContent = it.val;
+      d.appendChild(i);
+      d.appendChild(b);
+      host.appendChild(d);
+    });
+  }
+
   function makeMirror(){
     var box = document.createElement('div');
-    box.className = 'regsframe case';
-    box.innerHTML = '<div class="rmsrc" data-src="stack"></div><div class="rmsrc" data-src="regs"></div>';
-    var dstStack = box.querySelector('[data-src="stack"]');
-    var dstRegs  = box.querySelector('[data-src="regs"]');
-    var lastS = '', lastR = '';
+    box.className = 'rgwrap';
+
+    var h1 = document.createElement('div');
+    h1.className = 'rghd';
+    h1.textContent = 'СТЕК X · Y · Z · T · X1';
+
+    var st = document.createElement('div');
+    st.className = 'rggrid';
+
+    var h2 = document.createElement('div');
+    h2.className = 'rghd';
+    h2.textContent = 'РЕГИСТРЫ R0–Rd';
+
+    var rg = document.createElement('div');
+    rg.className = 'rggrid';
+
+    box.appendChild(h1);
+    box.appendChild(st);
+    box.appendChild(h2);
+    box.appendChild(rg);
+
+    var lastKey = '';
 
     function sync(){
-      var srcStack = document.getElementById('stack');
-      var srcRegs  = document.getElementById('regs');
-      if(srcStack){
-        var h = srcStack.innerHTML;
-        if(h !== lastS){ lastS = h; dstStack.innerHTML = h; }
-      }
-      if(srcRegs){
-        var h2 = srcRegs.innerHTML;
-        if(h2 !== lastR){ lastR = h2; dstRegs.innerHTML = h2; }
-      }
+      var sCells = readCells(document.getElementById('stack'));
+      var rCells = readCells(document.getElementById('regs'));
+      var key = JSON.stringify([sCells, rCells]);
+      if(key === lastKey) return;
+      lastKey = key;
+      drawGrid(st, sCells);
+      drawGrid(rg, rCells);
     }
 
     var obs = new MutationObserver(sync);
     [document.getElementById('stack'), document.getElementById('regs')].forEach(function(el){
-      if(el) obs.observe(el, { childList: true, subtree: true, characterData: true, attributes: true });
+      if(el) obs.observe(el, { childList: true, subtree: true, characterData: true });
     });
-    setInterval(sync, 800);
+    setInterval(sync, 600);
     sync();
     return box;
   }
@@ -99,7 +159,6 @@
 
     var tab = document.getElementById('tabCalc') || document.body;
     var bar = dbg.querySelector('.dbgbar');
-    var regsEl = dbg.querySelector('#dbgRegs');
     var progEl = dbg.querySelector('#dbgProg');
     var logEl  = dbg.querySelector('#dbgLog');
     var routeEl= dbg.querySelector('#dbgRoute');
@@ -136,7 +195,7 @@
     }
 
     var calcSec = wrap('calc', '🧮 Калькулятор', [caseEl, secs[0]]);
-    var regsSec = wrap('regs', '🔢 Регистры и стек', [regsEl, makeMirror()]);
+    var regsSec = wrap('regs', '🔢 Регистры и стек', [makeMirror()]);
     var progSec = wrap('prog', '📜 Программа', [secs[1], progEl]);
     var logSec  = wrap('log',  '📋 Журнал и маршрут', [secs[2], logEl, secs[3], routeEl]);
 

@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Электроника Б3-34 — v4</title>
+<meta name="theme-color" content="#23251f">
+<link rel="stylesheet" href="b3-34.css?v=1">
+</head>
+<body>
+<div class="wrap">
+
+  <div class="tabs">
+    <button data-tab="calc" class="on">🧮 Калькулятор</button>
+    <button data-tab="catalog">📚 Программы</button>
+  </div>
+
+  <div id="tabCalc">
+
+  <div class="case">
+    <div class="brand"><span>ЭЛЕКТРОНИКА</span><b>Б3-34 · v4</b></div>
+    <div class="lcdbox">
+      <div class="lcd" id="lcd">0</div>
+      <div class="lcdrow"><span id="lMode">АВТ</span><span id="lAddr"></span><span id="lPref"></span></div>
+    </div>
+    <div class="stack" id="stack"></div>
+    <div class="regs" id="regs"></div>
+    <div class="pad" id="pad"></div>
+    <div class="panel" id="panel" style="display:none"></div>
+  </div>
+  <div class="tools">
+    <button id="btnRun" class="run">▶ Пуск программы</button>
+    <button id="btnStop" class="stop">⏹ Стоп</button>
+    <button id="btnSpeed">🐢 Темп: оригинал</button>
+    <button id="btnSound" class="on">🔊 Звук: вкл</button>
+    <button id="btnVoice" class="on">🗣 Голос: вкл</button>
+    <button id="btnMic">🎤 Сказать</button>
+    <button id="btnPick" class="prim">📥 Пример…</button>
+    <button id="btnHelp">❓ Справка</button>
+    <button id="btnReset">⏻ Сброс</button>
+    <button id="btnDemo" style="display:none">📥 Пример: n!</button>
+    <button id="btnDemo2" style="display:none">📐 Пример: отрезок</button>
+    <button id="btnDemo3" style="display:none">🔢 Пример: НОД</button>
+  </div>
+  <div class="hint" id="hint">RPN: сначала число, затем В↑ и второе число, потом операция. Например 5 В↑ 3 + → 8.</div>
+
+  <div class="mem">
+    <div class="lbl">ПРОГРАММЫ: ПАМЯТЬ И ФАЙЛЫ</div>
+    <div class="proglist" id="progList"></div>
+    <div class="memrow">
+      <button id="btnSaveProg" class="prim">💾 Сохранить программу</button>
+      <button id="btnImportFile">⬆ Загрузить файл</button>
+      <button id="btnExportJson">⬇ Файл JSON</button>
+      <button id="btnExportTxt">⬇ Файл TXT</button>
+    </div>
+    <div class="memnote">Список хранится в памяти браузера на этом телефоне. Файлы JSON/TXT сохраняются в «Загрузки» — их можно перенести на другое устройство и загрузить обратно.</div>
+    <input type="file" id="fileInput" accept=".json,.txt,application/json,text/plain" style="display:none">
+  </div>
+
+  <div class="help" id="help">
+    <h3>Как считать</h3>
+    <p>Обратная польская запись: <code>5 В↑ 3 +</code> даёт 8. Клавиша <code>В↑</code> разделяет числа, <code>↔</code> меняет X и Y, <code>F◯</code> прокручивает стек.</p>
+
+    <h3>Слои клавиатуры</h3>
+    <p><code>f</code> открывает слой функций: синус, косинус, тангенс, обратные, <code>lg</code>, <code>10^x</code>, <code>F Вx</code>, условия <code>x&lt;0</code>, <code>x=0</code>, <code>x≥0</code>, <code>x≠0</code> и циклы <code>L0</code>–<code>L3</code>, режимы <code>ПРГ</code> и <code>АВТ</code>, выход <code>CF</code>.</p>
+    <p><code>k</code> открывает слой косвенных команд: <code>НОП</code>, <code>БП R</code>, <code>ПП R</code> и косвенные условия <code>x≠0 R</code>, <code>x≥0 R</code>, <code>x&lt;0 R</code>, <code>x=0 R</code>.</p>
+    <p>После нажатия любой клавиши в слое калькулятор сам возвращается на главную раскладку.</p>
+
+    <h3>Режим программирования</h3>
+    <p><code>f</code> → <code>ПРГ</code>. Каждое нажатие пишет двузначный код в память (98 шагов, адреса 00–97). Команды переходов <code>БП</code>, <code>ПП</code>, <code>x&lt;0</code>, <code>x=0</code>, <code>x≥0</code>, <code>x≠0</code> и циклы <code>L0</code>–<code>L3</code> занимают <b>три ячейки</b>: команда плюс две цифры адреса — десятки и единицы.</p>
+    <p>Косвенные команды занимают одну ячейку: адрес берётся из регистра.</p>
+
+    <h3>Как срабатывают условия</h3>
+    <p>Как у Б3-34: условие <b>выполнено</b> — идёт следующая команда, <b>не выполнено</b> — переход по записанному адресу. Циклы <code>L0</code>–<code>L3</code> работают наоборот: пока регистр не ноль — переход.</p>
+
+    <h3>Панель регистров</h3>
+    <p>Под стеком 14 регистров: <code>R0</code>–<code>R9</code>, <code>Ra</code>–<code>Rd</code>. Короткое нажатие — вызвать в X, долгое (около половины секунды, плашка мигнёт) — записать X в регистр.</p>
+
+    <h3>Запуск программы</h3>
+    <p>Зелёная <code>▶ Пуск программы</code> — автоматически ставит АВТ, адрес 00 и запускает. Или как на настоящем: <code>f</code> → <code>АВТ</code> → <code>В/О</code> → <code>С/П</code>.</p>
+    <p>Повторное <code>С/П</code> во время счёта — остановка, в покое — продолжение. <code>ПП</code> в режиме АВТ — один шаг.</p>
+
+    <h3>Разрядность и ЕГГОГ</h3>
+    <p>Мантисса 8 значащих цифр, порядок две цифры. <b>ЕГГОГ</b> — переполнение порядка, деление на ноль, √ из отрицательного, lg от нуля и отрицательного, arcsin/arccos вне [−1; 1].</p>
+    <p>Внутри считает обычная математика JavaScript с округлением до 8 значащих цифр, а не двоично-десятичная арифметика микросхемы — в последнем разряде редких случаев результат может отличаться.</p>
+
+    <h3>Что нового в v4</h3>
+    <p><b>Главное:</b> починены клавиши слоя <code>F</code> и <code>К НОП</code> в слое <code>K</code>. Раньше они молча ничего не делали: sin, cos, tg, arcsin, arccos, arctg, lg, 10^x, F Вx, x², 1/x, F◯, условия x&lt;0, x=0, x≥0, x≠0 и циклы L0–L3 не считали и не записывались в программу. Теперь работают и в режиме АВТ, и в режиме ПРГ.</p>
+    <p>Причина была в том, что у этих клавиш не было поля действия, а обработчик разбирает нажатие только по нему. Ядро <code>b3-34.js</code> при этом не изменено: страница v4 подгружает его и добавляет исправление на лету, поэтому откатить правку можно, просто открыв v3.</p>
+    <p>Стили вынесены в отдельный файл <code>b3-34.css</code>.</p>
+
+    <h3>Проверка после обновления</h3>
+    <p><code>f</code> → <code>sin</code> → <code>30</code> → <code>sin</code> → должно выйти <b>0.5</b>. <code>f</code> → <code>lg</code> → <code>1000</code> → <code>lg</code> → <b>3</b>. <code>f</code> → <code>ПРГ</code> → <code>sin</code> → на индикаторе код <b>1C</b>.</p>
+  </div>
+
+  </div><!-- /tabCalc -->
+
+  <div id="tabCatalog" style="display:none">
+    <input type="search" id="catSearch" class="catsearch" placeholder="Поиск по названию или коду команды: 61, √, НОД…">
+    <div class="catbar" id="catBar"></div>
+    <div class="catlist" id="catList"></div>
+  </div>
+
+</div>
+
+<div class="sheet" id="demoSheet">
+  <div class="sheetbox">
+    <div class="sheettop"><b>Готовые программы</b><button id="demoClose">✕</button></div>
+    <div class="sheetlist" id="demoList"></div>
+    <div class="sheetnote">Тот же список, что во вкладке «📚 Программы». После выбора программа загрузится в калькулятор вместе с числами для проверки.</div>
+  </div>
+</div>
+
+<script>
+/* Однократная проверка формата записей: раньше переход занимал две ячейки,
+   теперь три (команда + десятки + единицы). Если в сохранении после команды
+   перехода стоят не цифры, состояние считается старым и очищается. */
+(function(){
+  try{
+    if(localStorage.getItem('b334.fmt') === '6') return;
+    var KEY = 'b334.state.v3';
+    var raw = localStorage.getItem(KEY);
+    var bad = false;
+    if(raw){
+      var o = JSON.parse(raw);
+      var p = (o && Array.isArray(o.prog)) ? o.prog : null;
+      if(p){
+        var J = {};
+        [0x51,0x53,0x57,0x59,0x5C,0x5E,0x5D,0x5B,0x58,0x5A].forEach(function(c){ J[c] = 1; });
+        for(var i = 0; i < p.length; i++){
+          if(J[p[i]]){
+            var a = p[i+1], b = p[i+2];
+            if(!(typeof a === 'number' && a >= 0 && a <= 9 && typeof b === 'number' && b >= 0 && b <= 9)){
+              bad = true;
+              break;
+            }
+            i += 2;
+          }
+        }
+      }
+    }
+    if(bad) localStorage.removeItem(KEY);
+    localStorage.setItem('b334.fmt', '6');
+  }catch(e){}
+})();
+</script>
+
+<script src="b3-34-fix.js?v=1"></script>
+
+<script>
+(function(){
+  var btns = document.querySelectorAll('.tabs button');
+  function show(id){
+    var tc = document.getElementById('tabCalc');
+    var tk = document.getElementById('tabCatalog');
+    if(tc) tc.style.display = (id === 'catalog') ? 'none' : '';
+    if(tk) tk.style.display = (id === 'catalog') ? '' : 'none';
+    for(var i = 0; i < btns.length; i++){
+      btns[i].className = (btns[i].getAttribute('data-tab') === id) ? 'on' : '';
+    }
+  }
+  for(var i = 0; i < btns.length; i++){
+    btns[i].addEventListener('click', function(){
+      show(this.getAttribute('data-tab'));
+      window.scrollTo(0, 0);
+    });
+  }
+})();
+</script>
+
+<script>
+/* Кнопка «📥 Пример…»: один список, данные из catalog.js (window.B334Cat) */
+(function(){
+  var sheet = document.getElementById('demoSheet');
+  var list = document.getElementById('demoList');
+  var open = document.getElementById('btnPick');
+  var close = document.getElementById('demoClose');
+  if(!sheet || !list || !open) return;
+
+  function closeSheet(){ sheet.classList.remove('on'); }
+
+  function fill(){
+    list.innerHTML = '';
+    var cat = window.B334Cat;
+    if(!cat || !cat.progs || !cat.progs.length){
+      var d = document.createElement('div');
+      d.className = 'sheetnote';
+      d.textContent = 'Справочник не загрузился. Обнови страницу.';
+      list.appendChild(d);
+      return;
+    }
+    cat.progs.forEach(function(p){
+      var b = document.createElement('button');
+      b.className = 'sheetitem';
+
+      var ic = document.createElement('span');
+      ic.className = 'ic';
+      ic.textContent = p.icon || '📄';
+
+      var tx = document.createElement('span');
+      tx.className = 'tx';
+      var nm = document.createElement('span');
+      nm.textContent = p.title;
+      var sm = document.createElement('small');
+      sm.textContent = p.codes.length + ' шагов' + (p.check ? ' · ' + p.check : '');
+      tx.appendChild(nm);
+      tx.appendChild(sm);
+
+      b.appendChild(ic);
+      b.appendChild(tx);
+      b.addEventListener('click', function(){
+        closeSheet();
+        cat.load(p);
+      });
+      list.appendChild(b);
+    });
+  }
+
+  open.addEventListener('click', function(){
+    fill();
+    sheet.classList.add('on');
+  });
+  if(close) close.addEventListener('click', closeSheet);
+  sheet.addEventListener('click', function(e){ if(e.target === sheet) closeSheet(); });
+})();
+</script>
+</body>
+</html>

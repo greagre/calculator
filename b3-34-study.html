@@ -1,292 +1,500 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Электроника Б3-34 — учёба</title>
-<meta name="theme-color" content="#F6F5F1">
-<link rel="stylesheet" href="b3-34.css?v=4">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Электроника Б3-34 — работа и учёба</title>
 <style>
-/* страховка для экрана «Регистры»: если отладчик не поднялся,
-   ячейки рисуются этим же оформлением — тёмные плашки, зелёные цифры */
-.fld.regs .rgq{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;
-  gap:6px!important;width:100%!important;box-sizing:border-box}
-.fld.regs .rgqi{background:#20241c;border:1px solid #3a4232;border-radius:9px;
-  padding:7px 2px;text-align:center;min-width:0;overflow:hidden;box-sizing:border-box}
-.fld.regs .rgqi span{display:block;color:#7fa88a;font-size:10px;font-weight:700;
-  letter-spacing:.5px;line-height:1.2;margin:0 0 2px}
-.fld.regs .rgqi b{display:block;color:#8dffab;font-size:14px;font-weight:700;
-  font-family:ui-monospace,"SF Mono",Menlo,monospace;line-height:1.15;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-  text-shadow:0 0 7px rgba(141,255,171,.4)}
-@media(max-width:345px){.fld.regs .rgq{grid-template-columns:repeat(4,minmax(0,1fr))!important}}
+  :root{
+    --bg:#f1efe8; --card:#ffffff; --line:#d8d5cb; --ink:#1b1b1b;
+    --mut:#6d6a61; --dark:#2b2b2b; --green:#35e07a; --acc:#2f7d4f;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg);color:var(--ink);
+    font:15px/1.35 -apple-system,"Segoe UI",Roboto,system-ui,sans-serif;
+    padding:10px 10px 96px;
+  }
+  h1{font-size:15px;margin:0 0 8px;color:var(--mut);font-weight:500;letter-spacing:.3px}
+
+  .seg{display:flex;gap:8px;margin-bottom:10px}
+  .seg button{
+    flex:1;min-height:46px;border:1px solid var(--line);border-radius:12px;
+    background:var(--card);color:var(--ink);font-size:15px;font-weight:600;
+  }
+  .seg button.on{background:var(--acc);border-color:var(--acc);color:#fff}
+  .seg button.more{flex:0 0 54px;font-size:19px;line-height:1}
+
+  .scr{display:none}
+  .scr.on{display:block}
+  .panel{
+    background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:10px;margin-bottom:10px;
+  }
+  .ttl{font-size:11px;letter-spacing:.6px;color:var(--mut);margin:0 0 8px;text-transform:uppercase}
+
+  .dsp{
+    background:#1b1b1b;border-radius:12px;padding:12px 14px;margin-bottom:10px;
+    text-align:right;min-height:62px;display:flex;flex-direction:column;justify-content:center;
+  }
+  .dsp .hint{font-size:11px;color:#8f8f8f;text-align:left;min-height:14px}
+  .dsp .val{font-size:30px;font-weight:600;color:var(--green);font-family:ui-monospace,monospace}
+
+  /* ячейки корпуса и раздел «Регистры» — одна и та же сетка */
+  .cells{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;width:100%}
+  .cell{
+    background:var(--dark);border-radius:10px;padding:6px 4px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    aspect-ratio:1/1;min-width:0;overflow:hidden;
+  }
+  .cell .lb{font-size:10px;color:#9a9a9a;letter-spacing:.4px;line-height:1}
+  .cell .vl{
+    font-family:ui-monospace,monospace;color:var(--green);font-weight:600;
+    font-size:15px;line-height:1.1;margin-top:3px;
+    max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;
+  }
+  .cells.big .cell .vl{font-size:20px}
+  .cells.big .cell .lb{font-size:11px}
+
+  .keys{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:10px}
+  .keys button{
+    min-height:48px;border:1px solid var(--line);border-radius:10px;
+    background:#faf9f5;color:var(--ink);font-size:16px;font-weight:600;
+  }
+  .keys button.op{background:#e8e6df}
+  .keys button.act{background:var(--acc);border-color:var(--acc);color:#fff}
+  .keys button:active{filter:brightness(.93)}
+
+  .loglist{margin:0;padding:0;list-style:none;font-family:ui-monospace,monospace;font-size:13px}
+  .loglist li{padding:5px 0;border-bottom:1px solid #eeece5;color:var(--ink)}
+  .loglist li:last-child{border-bottom:0}
+  .empty{color:var(--mut);font-size:13px}
+
+  .stepper{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:10px}
+  .stepper button{
+    min-height:46px;border:1px solid var(--line);border-radius:12px;
+    background:var(--card);font-size:15px;font-weight:600;color:var(--ink);
+  }
+  body[data-mode="work"] .study-only{display:none !important}
+  .stepper.work-only{display:none}
+  body[data-mode="work"] .stepper.work-only{display:grid}
+
+  .tabs{
+    position:fixed;left:10px;right:10px;bottom:10px;z-index:5;
+    display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;
+    background:var(--bg);padding-top:8px;
+  }
+  .tabs button{
+    min-height:48px;border:1px solid var(--line);border-radius:12px;
+    background:var(--card);font-size:13px;font-weight:600;color:var(--ink);
+    white-space:nowrap;overflow:hidden;
+  }
+  .tabs button.on{background:var(--acc);border-color:var(--acc);color:#fff}
+
+  .sheet{
+    display:none;position:fixed;left:10px;right:10px;bottom:70px;z-index:9;
+    background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:10px;box-shadow:0 10px 28px rgba(0,0,0,.20);
+  }
+  .sheet.on{display:block}
+  .sheet button{
+    display:block;width:100%;min-height:44px;margin-bottom:6px;
+    border:1px solid var(--line);border-radius:10px;background:#faf9f5;
+    font-size:15px;font-weight:600;color:var(--ink);font-family:inherit;
+  }
+  .sheet button:last-child{margin-bottom:0}
 </style>
 </head>
-<body>
-<div class="wrap">
+<body data-mode="study">
 
-  <div class="tabs">
-    <button data-tab="calc" class="on">🧮 Калькулятор</button>
-    <button data-tab="catalog">📚 Программы</button>
-  </div>
+<h1>Б3-34 · работа и учёба</h1>
 
-  <div id="tabCalc">
-
-  <div class="case">
-    <div class="brand"><span>ЭЛЕКТРОНИКА</span><b>Б3-34 · учёба</b></div>
-    <div class="lcdbox">
-      <div class="lcd" id="lcd">0</div>
-      <div class="lcdrow"><span id="lMode">АВТ</span><span id="lAddr"></span><span id="lPref"></span></div>
-    </div>
-    <div class="stack" id="stack"></div>
-    <div class="regs" id="regs"></div>
-    <div class="pad" id="pad"></div>
-    <div class="panel" id="panel" style="display:none"></div>
-  </div>
-
-  <div class="tools">
-    <button id="btnRun" class="run">▶ Пуск программы</button>
-    <button id="btnStop" class="stop">⏹ Стоп</button>
-    <button id="btnSpeed">🐢 Темп: оригинал</button>
-    <button id="btnSound" class="on">🔊 Звук: вкл</button>
-    <button id="btnVoice" class="on">🗣 Голос: вкл</button>
-    <button id="btnMic">🎤 Сказать</button>
-    <button id="btnPick" class="prim">📥 Пример…</button>
-    <button id="btnHelp">❓ Справка</button>
-    <button id="btnReset">⏻ Сброс</button>
-    <button id="btnDemo" style="display:none">📥 Пример: n!</button>
-    <button id="btnDemo2" style="display:none">📐 Пример: отрезок</button>
-    <button id="btnDemo3" style="display:none">🔢 Пример: НОД</button>
-  </div>
-
-  <div class="hint" id="hint">RPN: сначала число, затем В↑ и второе число, потом операция. Например 5 В↑ 3 + → 8.</div>
-
-  <div class="mem">
-    <div class="lbl">ПРОГРАММЫ: ПАМЯТЬ И ФАЙЛЫ</div>
-    <div class="proglist" id="progList"></div>
-    <div class="memrow">
-      <button id="btnSaveProg" class="prim">💾 Сохранить программу</button>
-      <button id="btnImportFile">⬆ Загрузить файл</button>
-      <button id="btnExportJson">⬇ Файл JSON</button>
-      <button id="btnExportTxt">⬇ Файл TXT</button>
-    </div>
-    <div class="memnote">Список хранится в памяти браузера на этом телефоне. Файлы JSON/TXT сохраняются в «Загрузки» — их можно перенести на другое устройство и загрузить обратно.</div>
-    <input type="file" id="fileInput" accept=".json,.txt,application/json,text/plain" style="display:none">
-  </div>
-
-  <div class="help" id="help">
-    <h3>Что это за страница</h3>
-    <p><b>Работа</b> — считать и набирать программы. <b>Учёба</b> — разбирать выполнение по шагам: листинг с маркером, регистры, журнал и маршрут адресов. Четыре экрана: <code>Числа · Регистры · Код · Журнал</code>, виден всегда ровно один.</p>
-
-    <h3>Почему не было переключателя «Работа / Учёба»</h3>
-    <p>Нижняя панель собирается в <code>b3-34-ui.js</code>, и она ждала элемент <code>#flwBar</code>. Такого элемента в проекте не создавал никто — ни ядро, ни отладчик, ни надстройки. Не дождавшись за девять секунд, панель молча выключалась, и на странице оставались старые кнопки подряд — без режимов и без группировки.</p>
-    <p>Теперь подключён <code>b3-34-bridge.js</code>: он создаёт <code>#flwBar</code> сразу и кладёт туда кнопки шагов. Панель собирается, кнопки группируются, лишние уходят в <code>⋯</code>.</p>
-    <p><b>Регистры.</b> Раздел забирает готовый блок отладчика <code>#dbgRegs</code>: сетка пять в ряд, тёмные плашки, зелёные цифры. Если блок не появился, ячейки рисуются напрямую из состояния процессора — пустых квадратов не будет.</p>
-
-    <h3>Как смотреть выполнение</h3>
-    <p><b>1.</b> Внизу выбери <b>Учёба</b>. <b>2.</b> Открой <b>Код</b> — увидишь листинг с адресами и командами. <b>3.</b> Нажми <code>▶ Шаг</code> — маркер перейдёт на следующую строку. <b>4.</b> Нажми <code>Авто</code> — программа пойдёт сама, а экраны будут сменяться по шагам.</p>
-
-    <h3>Режимы и кнопки</h3>
-    <p><b>Работа</b> — <code>▶ Пуск</code>, <code>⏩ Темп</code>, <code>⏹ Стоп</code>, <code>📂 Программа</code>, <code>⟲ Сброс</code>. Строка шагов в Работе скрыта: она относится к Учёбе.</p>
-    <p><b>Учёба</b> — <code>▶ Шаг</code>, <code>Авто</code>, <code>На 00</code>, <code>Очистить</code> и четыре экрана.</p>
-    <p>Всё остальное — звук, голос, микрофон, пример, справка, файлы, темп смены экранов и оформление — в кнопке <code>⋯</code>. Библиотека и сохранённые программы — в <code>☰</code>.</p>
-    <p>Выбор программы в библиотеке сбрасывает выполнение (PC = 00) и возвращает в <b>Работу</b>.</p>
-
-    <h3>Темп смены экранов</h3>
-    <p>В меню <code>⋯</code> → «Меняются»: по шагу, каждую 1 / 2 / 5 / 10 секунд или только вручную. Таймерные режимы листают только пока идут шаги. Своё нажатие по кнопке экрана останавливает листание на 8 секунд.</p>
-
-    <h3>Как считать</h3>
-    <p>Обратная польская запись: <code>30</code> → <code>f</code> → <code>sin</code> даёт <code>0.5</code>. Сначала число, потом функция. <code>В↑</code> разделяет числа, <code>↔</code> меняет X и Y, <code>F◯</code> прокручивает стек.</p>
-    <p>Проверка стека: набери <code>45</code>, нажми <code>В↑</code>, затем <code>4</code> — в корпусе должно быть <code>X = 4</code>, <code>Y = 45</code>, а <code>+</code> даёт <code>49</code>. Если вместо этого получается <code>454</code>, значит набранное число не фиксировалось перед подъёмом стека — скажи, и я поправлю ядро.</p>
-
-    <h3>Регистры и ЕГГОГ</h3>
-    <p>Под стеком 14 регистров: <code>R0</code>–<code>R9</code>, <code>Ra</code>–<code>Rd</code>. Короткое нажатие — вызвать в X, долгое — записать X в регистр.</p>
-    <p><b>ЕГГОГ</b> — переполнение порядка, деление на ноль, √ из отрицательного, lg от нуля, arcsin/arccos вне [−1; 1].</p>
-
-    <h3>Проверка</h3>
-    <p>Функции: <code>30</code> → <code>f</code> → <code>sin</code> → <b>0.5</b>; <code>1000</code> → <code>f</code> → <code>lg</code> → <b>3</b>.</p>
-    <p>Регистры: нажми <code>Регистры</code> — пять квадратов в ряд на всю ширину, значения крупные.</p>
-    <p>Маркер: Учёба → Код → <code>▶ Шаг</code>. Слева от строки появится стрелка и пойдёт вниз.</p>
-
-    <h3>Две страницы проекта</h3>
-    <p><b>Основная</b> — <code>b3-34.html</code>: калькулятор и программы. <b>Эта</b> — <code>b3-34-study.html</code>: работа и учёба с разделами. Остальные файлы <code>b3-34-v2…v17</code> — архив, в работу не идут.</p>
-  </div>
-
-  </div><!-- /tabCalc -->
-
-  <div id="tabCatalog" style="display:none">
-    <input type="search" id="catSearch" class="catsearch" placeholder="Поиск по названию или коду команды: 61, √, НОД…">
-    <div class="catbar" id="catBar"></div>
-    <div class="catlist" id="catList"></div>
-  </div>
-
+<div class="seg">
+  <button data-mode-btn="work">Работа</button>
+  <button data-mode-btn="study" class="on">Учёба</button>
+  <button class="more" id="btnMore" aria-label="Ещё">⋯</button>
 </div>
 
-<div class="sheet" id="demoSheet">
-  <div class="sheetbox">
-    <div class="sheettop"><b>Готовые программы</b><button id="demoClose">✕</button></div>
-    <div class="sheetlist" id="demoList"></div>
-    <div class="sheetnote">Тот же список, что в боковой библиотеке. После выбора программа загрузится в калькулятор вместе с числами для проверки.</div>
-  </div>
+<div class="stepper study-only">
+  <button id="bStep">▶ Шаг</button>
+  <button id="bAuto">Авто</button>
+  <button id="b00">00</button>
 </div>
 
+<div class="stepper work-only">
+  <button id="bRun">▶ Пуск</button>
+  <button id="bSpeed">⏩ Темп</button>
+  <button id="bReset">⟲ Сброс</button>
+</div>
+
+<div class="sheet" id="sheet">
+  <button id="mReset">⟲ Сброс всего</button>
+  <button id="mClearLog">🧹 Очистить журнал</button>
+  <button id="mDemo">📥 Пример: n!</button>
+  <button id="mHelp">❓ Коротко о прави</button>
+</div>
+
+<!-- 1. ЧИСЛА -->
+<section class="scr on" id="s-calc">
+  <div class="panel">
+    <p class="ttl">Стек и регистры</p>
+    <div class="cells" id="cellsCalc"></div>
+  </div>
+  <div class="panel">
+    <div class="dsp">
+      <div class="hint" id="hint"></div>
+      <div class="val" id="disp">0</div>
+    </div>
+    <div class="keys" id="keys"></div>
+  </div>
+</section>
+
+<!-- 2. РЕГИСТРЫ -->
+<section class="scr" id="s-regs">
+  <div class="panel">
+    <p class="ttl">Стек X · Y · Z · T · X1</p>
+    <div class="cells big" id="cellsRegsStack"></div>
+  </div>
+  <div class="panel">
+    <p class="ttl">Регистры R0–Rd</p>
+    <div class="cells big" id="cellsRegsMem"></div>
+  </div>
+</section>
+
+<!-- 3. КОД -->
+<section class="scr" id="s-code">
+  <div class="panel">
+    <p class="ttl">Программа</p>
+    <p class="empty">Программа не загружена — это следующий этап. Пока считает корпус.</p>
+  </div>
+</section>
+
+<!-- 4. ЖУРНАЛ -->
+<section class="scr" id="s-log">
+  <div class="panel">
+    <p class="ttl">Журнал операций</p>
+    <ul class="loglist" id="loglist"></ul>
+    <p class="empty" id="logEmpty">Здесь появятся операции.</p>
+  </div>
+</section>
+
+<nav class="tabs" id="tabs">
+  <button data-tab="calc" class="on">Числа</button>
+  <button data-tab="regs">Регистры</button>
+  <button data-tab="code">Код</button>
+  <button data-tab="log">Журнал</button>
+</nav>
+
 <script>
-/* Однократная проверка формата записей: раньше переход занимал две ячейки,
-   теперь три (команда + десятки + единицы). */
 (function(){
-  try{
-    if(localStorage.getItem('b334.fmt') === '6') return;
-    var KEY = 'b334.state.v3';
-    var raw = localStorage.getItem(KEY);
-    var bad = false;
-    if(raw){
-      var o = JSON.parse(raw);
-      var p = (o && Array.isArray(o.prog)) ? o.prog : null;
-      if(p){
-        var J = {};
-        [0x51,0x53,0x57,0x59,0x5C,0x5E,0x5D,0x5B,0x58,0x5A].forEach(function(c){ J[c] = 1; });
-        for(var i = 0; i < p.length; i++){
-          if(J[p[i]]){
-            var a = p[i+1], b = p[i+2];
-            if(!(typeof a === 'number' && a >= 0 && a <= 9 && typeof b === 'number' && b >= 0 && b <= 9)){
-              bad = true;
-              break;
-            }
-            i += 2;
-          }
-        }
-      }
-    }
-    if(bad) localStorage.removeItem(KEY);
-    localStorage.setItem('b334.fmt', '6');
-  }catch(e){}
-})();
-</script>
+  "use strict";
 
-<script src="b3-34-fix.js?v=5"></script>
-<script src="b3-34-follow.js?v=15"></script>
-<script src="b3-34-ui.js?v=7"></script>
-<script src="b3-34-work.js?v=4"></script>
-<script src="b3-34-bridge.js?v=1"></script>
+  var M = {
+    x:0, y:0, z:0, t:0, x1:0,
+    R:new Array(14).fill(0),
+    buf:null,
+    pendReg:null,
+    log:[]
+  };
 
-<script>
-/* Страховка для раздела «Регистры»: если отладчик не появился,
-   рисуем ячейки сами — из состояния процессора, той же сеткой 5 в ряд. */
-(function(){
-  var NAMES = ['X','Y','Z','T','X1'];
-  var SUF = '0123456789abcd';
+  var REG_NAMES = ['R0','R1','R2','R3','R4','R5','R6','R7','R8','R9','Ra','Rb','Rc','Rd'];
 
-  function paint(){
-    var fld = document.querySelector('.fld.regs');
-    if(!fld) return;
-    if(fld.querySelector('#dbgRegs')) return;       /* отладчик на месте — не мешаем */
-    var B = window.B334, st = B && B.ST;
-    if(!st) return;
-    var host = fld.querySelector('.rgq');
-    if(!host){
-      host = document.createElement('div');
-      host.className = 'rgq';
-      fld.appendChild(host);
+  function fmt(v){
+    if (v === null || v === undefined || isNaN(v)) return '0';
+    if (!isFinite(v)) return 'ЕГГОР';
+    if (v === 0) return '0';
+    var a = Math.abs(v);
+    if (a >= 1e8 || a < 1e-6){
+      return v.toExponential(4).replace('e', 'Е').replace('+', '');
     }
-    var fmt = (B && typeof B.fmtNum === 'function')
-      ? function(v){ try{ return B.fmtNum(v); }catch(e){ return String(v); } }
-      : function(v){ return String(v); };
-    var html = '';
-    var i;
-    for(i = 0; i < NAMES.length; i++){
-      html += '<div class="rgqi"><span>' + NAMES[i] + '</span><b>'
-            + fmt(i === 0 ? st.X : i === 1 ? st.Y : i === 2 ? st.Z : i === 3 ? st.T : st.X1)
-            + '</b></div>';
-    }
-    var R = st.R || [];
-    for(i = 0; i < R.length; i++){
-      html += '<div class="rgqi"><span>R' + (SUF[i] || i) + '</span><b>'
-            + fmt(R[i]) + '</b></div>';
-    }
-    host.innerHTML = html;
+    var s = v.toFixed(6);
+    if (s.indexOf('.') >= 0) s = s.replace(/0+$/, '').replace(/\.$/, '');
+    return s;
   }
 
-  setInterval(paint, 700);
-  if(document.readyState !== 'loading') setTimeout(paint, 800);
-  else document.addEventListener('DOMContentLoaded', function(){ setTimeout(paint, 800); });
-})();
-</script>
+  function commit(){
+    if (M.buf === null) return false;
+    var v = parseFloat(M.buf.replace(',', '.'));
+    M.x = isNaN(v) ? 0 : v;
+    M.buf = null;
+    return true;
+  }
 
-<script>
-(function(){
-  var btns = document.querySelectorAll('.tabs button');
-  function show(id){
-    var tc = document.getElementById('tabCalc');
-    var tk = document.getElementById('tabCatalog');
-    if(tc) tc.style.display = (id === 'catalog') ? 'none' : '';
-    if(tk) tk.style.display = (id === 'catalog') ? '' : 'none';
-    for(var i = 0; i < btns.length; i++){
-      btns[i].className = (btns[i].getAttribute('data-tab') === id) ? 'on' : '';
+  function digit(d){
+    if (M.pendReg){ pickReg(Number(d)); return; }
+    if (M.buf === null) M.buf = '';
+    if (M.buf === '0') M.buf = '';
+    if (M.buf.replace('-', '').replace(',', '').length >= 12) return;
+    M.buf += d;
+    render();
+  }
+
+  function comma(){
+    if (M.pendReg) return;
+    if (M.buf === null) M.buf = '0,';
+    else if (M.buf.indexOf(',') < 0) M.buf += ',';
+    render();
+  }
+
+  function negate(){
+    if (M.pendReg) return;
+    if (M.buf !== null){
+      M.buf = (M.buf.charAt(0) === '-') ? M.buf.slice(1) : '-' + M.buf;
+    } else {
+      M.x = -M.x;
+    }
+    render();
+  }
+
+  function push(v){
+    M.x1 = M.t; M.t = M.z; M.z = M.y; M.y = M.x; M.x = v;
+  }
+
+  function dup(){
+    commit();
+    M.x1 = M.t; M.t = M.z; M.z = M.y; M.y = M.x;
+    logLine('В↑', fmt(M.x));
+  }
+
+  function swap(){
+    commit();
+    var a = M.x; M.x = M.y; M.y = a;
+    logLine('↔', fmt(M.x));
+  }
+
+  function cx(){
+    M.buf = null; M.pendReg = null; M.x = 0;
+    logLine('Сх', '0');
+  }
+
+  function unop(name, f){
+    commit();
+    var v = f(M.x);
+    M.x = v;
+    logLine(name, fmt(v));
+  }
+
+  function binop(name, f){
+    commit();
+    var r = f(M.y, M.x);
+    M.y = M.z; M.z = M.t; M.t = M.x1; M.x1 = 0;
+    M.x = r;
+    logLine(name, fmt(r));
+  }
+
+  function pickReg(i){
+    if (i < 0 || i > 13) return;
+    var mode = M.pendReg;
+    M.pendReg = null;
+    if (mode === 'write'){
+      commit();
+      M.R[i] = M.x;
+      logLine('X→П ' + REG_NAMES[i], fmt(M.x));
+    } else {
+      commit();
+      push(M.R[i]);
+      logLine('П→X ' + REG_NAMES[i], fmt(M.x));
+    }
+    render();
+  }
+
+  function logLine(op, res){
+    M.log.unshift(op + ' → ' + res);
+    if (M.log.length > 100) M.log.pop();
+    renderLog();
+  }
+
+  var cellsCalc, regsStack, regsMem, dispEl, hintEl, logEl, logEmpty;
+
+  function mkCell(label){
+    var d = document.createElement('div');
+    d.className = 'cell';
+    var l = document.createElement('div');
+    l.className = 'lb'; l.textContent = label;
+    var v = document.createElement('div');
+    v.className = 'vl'; v.textContent = '0';
+    d.appendChild(l); d.appendChild(v);
+    return d;
+  }
+
+  function buildCells(host, labels){
+    host.innerHTML = '';
+    labels.forEach(function(n){ host.appendChild(mkCell(n)); });
+  }
+
+  function fillCells(host, values){
+    var nodes = host.querySelectorAll('.cell .vl');
+    for (var i = 0; i < nodes.length && i < values.length; i++){
+      var s = values[i];
+      nodes[i].textContent = s;
+      nodes[i].style.fontSize = s.length > 12 ? '9px' : (s.length > 9 ? '11px' : '');
     }
   }
-  for(var i = 0; i < btns.length; i++){
-    btns[i].addEventListener('click', function(){
-      show(this.getAttribute('data-tab'));
-      window.scrollTo(0, 0);
+
+  function stackValues(){ return [fmt(M.x), fmt(M.y), fmt(M.z), fmt(M.t), fmt(M.x1)]; }
+  function regValues(){ return M.R.map(fmt); }
+
+  function render(){
+    dispEl.textContent = M.buf !== null ? M.buf : fmt(M.x);
+    hintEl.textContent = M.pendReg
+      ? (M.pendReg === 'read' ? 'П→X: выбери регистр цифрой' : 'X→П: выбери регистр цифрой')
+      : '';
+
+    var st = stackValues();
+    if (cellsCalc) fillCells(cellsCalc, st.concat(regValues()));
+    if (regsStack) fillCells(regsStack, st);
+    if (regsMem) fillCells(regsMem, regValues());
+  }
+
+  function renderLog(){
+    if (!logEl) return;
+    logEl.innerHTML = '';
+    M.log.forEach(function(line){
+      var li = document.createElement('li');
+      li.textContent = line;
+      logEl.appendChild(li);
     });
+    logEmpty.style.display = M.log.length ? 'none' : '';
   }
-})();
-</script>
 
-<script>
-/* Кнопка «Пример…»: список из catalog.js (window.B334Cat) */
-(function(){
-  var sheet = document.getElementById('demoSheet');
-  var list = document.getElementById('demoList');
-  var open = document.getElementById('btnPick');
-  var close = document.getElementById('demoClose');
-  if(!sheet || !list || !open) return;
+  var KEYMAP = [
+    { t:'7', k:function(){digit('7')} }, { t:'8', k:function(){digit('8')} },
+    { t:'9', k:function(){digit('9')} }, { t:'÷', cls:'op', k:function(){binop('÷', function(a,b){return a/b})} },
+    { t:'4', k:function(){digit('4')} }, { t:'5', k:function(){digit('5')} },
+    { t:'6', k:function(){digit('6')} }, { t:'×', cls:'op', k:function(){binop('×', function(a,b){return a*b})} },
+    { t:'1', k:function(){digit('1')} }, { t:'2', k:function(){digit('2')} },
+    { t:'3', k:function(){digit('3')} }, { t:'−', cls:'op', k:function(){binop('−', function(a,b){return a-b})} },
+    { t:'0', k:function(){digit('0')} }, { t:',', k:comma },
+    { t:'Сх', cls:'op', k:cx },          { t:'+', cls:'op', k:function(){binop('+', function(a,b){return a+b})} },
+    { t:'В↑', cls:'op', k:dup },         { t:'↔', cls:'op', k:swap },
+    { t:'x²', cls:'op', k:function(){unop('x²', function(v){return v*v})} },
+    { t:'√', cls:'op', k:function(){unop('√', Math.sqrt)} },
+    { t:'1/x', cls:'op', k:function(){unop('1/x', function(v){return 1/v})} },
+    { t:'x^y', cls:'op', k:function(){binop('x^y', Math.pow)} },
+    { t:'e^x', cls:'op', k:function(){unop('e^x', Math.exp)} },
+    { t:'ln', cls:'op', k:function(){unop('ln', Math.log)} },
+    { t:'π', cls:'op', k:function(){commit(); push(Math.PI); logLine('π', fmt(M.x));} },
+    { t:'/−/', cls:'op', k:negate },
+    { t:'П→X', cls:'act', k:function(){M.pendReg = 'read'; render();} },
+    { t:'X→П', cls:'act', k:function(){M.pendReg = 'write'; render();} }
+  ];
 
-  function closeSheet(){ sheet.classList.remove('on'); }
-
-  function fill(){
-    list.innerHTML = '';
-    var cat = window.B334Cat;
-    if(!cat || !cat.progs || !cat.progs.length){
-      var d = document.createElement('div');
-      d.className = 'sheetnote';
-      d.textContent = 'Справочник не загрузился. Обнови страницу.';
-      list.appendChild(d);
-      return;
-    }
-    cat.progs.forEach(function(p){
+  function buildKeys(){
+    var host = document.getElementById('keys');
+    host.innerHTML = '';
+    KEYMAP.forEach(function(item){
       var b = document.createElement('button');
-      b.className = 'sheetitem';
-
-      var ic = document.createElement('span');
-      ic.className = 'ic';
-      ic.textContent = p.icon || '📄';
-
-      var tx = document.createElement('span');
-      tx.className = 'tx';
-      var nm = document.createElement('span');
-      nm.textContent = p.title;
-      var sm = document.createElement('small');
-      sm.textContent = p.codes.length + ' шагов' + (p.check ? ' · ' + p.check : '');
-      tx.appendChild(nm);
-      tx.appendChild(sm);
-
-      b.appendChild(ic);
-      b.appendChild(tx);
-      b.addEventListener('click', function(){
-        closeSheet();
-        cat.load(p);
-      });
-      list.appendChild(b);
+      b.textContent = item.t;
+      if (item.cls) b.className = item.cls;
+      b.addEventListener('click', function(){ item.k(); render(); });
+      host.appendChild(b);
     });
   }
 
-  open.addEventListener('click', function(){
-    fill();
-    sheet.classList.add('on');
-  });
-  if(close) close.addEventListener('click', closeSheet);
-  sheet.addEventListener('click', function(e){ if(e.target === sheet) closeSheet(); });
+  function setTab(name){
+    var secs = { calc:'s-calc', regs:'s-regs', code:'s-code', log:'s-log' };
+    Object.keys(secs).forEach(function(k){
+      var el = document.getElementById(secs[k]);
+      if (el) el.classList.toggle('on', k === name);
+    });
+    var btns = document.querySelectorAll('#tabs button');
+    for (var i = 0; i < btns.length; i++){
+      btns[i].classList.toggle('on', btns[i].getAttribute('data-tab') === name);
+    }
+    render();
+  }
+
+  function setMode(m){
+    document.body.setAttribute('data-mode', m);
+    var btns = document.querySelectorAll('[data-mode-btn]');
+    for (var i = 0; i < btns.length; i++){
+      btns[i].classList.toggle('on', btns[i].getAttribute('data-mode-btn') === m);
+    }
+  }
+
+  function resetAll(){
+    M.x = M.y = M.z = M.t = M.x1 = 0;
+    M.R = new Array(14).fill(0);
+    M.buf = null; M.pendReg = null; M.log = [];
+    render(); renderLog();
+  }
+
+  function init(){
+    cellsCalc  = document.getElementById('cellsCalc');
+    regsStack  = document.getElementById('cellsRegsStack');
+    regsMem    = document.getElementById('cellsRegsMem');
+    dispEl     = document.getElementById('disp');
+    hintEl     = document.getElementById('hint');
+    logEl      = document.getElementById('loglist');
+    logEmpty   = document.getElementById('logEmpty');
+
+    buildCells(cellsCalc, ['X','Y','Z','T','X1','R0','R1','R2','R3','R4','R5','R6','R7','R8','R9','Ra','Rb','Rc','Rd']);
+    buildCells(regsStack, ['X','Y','Z','T','X1']);
+    buildCells(regsMem, REG_NAMES);
+
+    buildKeys();
+
+    document.getElementById('tabs').addEventListener('click', function(e){
+      var b = e.target.closest('button');
+      if (b) setTab(b.getAttribute('data-tab'));
+    });
+
+    document.querySelector('.seg').addEventListener('click', function(e){
+      var b = e.target.closest('button');
+      if (b && b.getAttribute('data-mode-btn')) setMode(b.getAttribute('data-mode-btn'));
+    });
+
+    var sheet = document.getElementById('sheet');
+    document.getElementById('btnMore').addEventListener('click', function(){
+      sheet.classList.toggle('on');
+    });
+    document.getElementById('mReset').addEventListener('click', function(){
+      sheet.classList.remove('on'); resetAll();
+    });
+    document.getElementById('mClearLog').addEventListener('click', function(){
+      sheet.classList.remove('on'); M.log = []; renderLog();
+    });
+    document.getElementById('mDemo').addEventListener('click', function(){
+      sheet.classList.remove('on');
+      logLine('Пример n!', 'программы — следующий этап');
+      setTab('log');
+    });
+    document.getElementById('mHelp').addEventListener('click', function(){
+      sheet.classList.remove('on');
+      logLine('Правила', 'число, В↑, второе число, операция');
+      logLine('Регистры', 'X→П и П→X, затем цифра 0–9');
+      setTab('log');
+    });
+
+    document.getElementById('bStep').addEventListener('click', function(){
+      logLine('Шаг', 'программа не загружена'); setTab('log');
+    });
+    document.getElementById('bAuto').addEventListener('click', function(){
+      logLine('Авто', 'программа не загружена'); setTab('log');
+    });
+    document.getElementById('b00').addEventListener('click', function(){
+      logLine('00', 'счётчик команд'); setTab('log');
+    });
+    document.getElementById('bRun').addEventListener('click', function(){
+      logLine('Пуск', 'программа не загружена'); setTab('log');
+    });
+    document.getElementById('bSpeed').addEventListener('click', function(){
+      logLine('Темп', 'программа не загружена'); setTab('log');
+    });
+    document.getElementById('bReset').addEventListener('click', function(){
+      resetAll(); setTab('calc');
+    });
+
+    render();
+    renderLog();
+  }
+
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
 })();
 </script>
 </body>

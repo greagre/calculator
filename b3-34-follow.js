@@ -1,19 +1,26 @@
 /* ============================================================
-   b3-34-follow.js — четыре экрана (ревизия 12)
+   b3-34-follow.js — четыре экрана (ревизия 13)
 
-   ЧТО БЫЛО СЛОМАНО В РЕВИЗИИ 11
-   Карточка раздела (.fld) попадала во flex-контейнер и сжималась
-   по содержимому: стек брал ширину по тексту, а сетка R0–Rd
-   строилась тремя колонками по содержимому. Отсюда «узкие овалы
-   в левом столбце» и пустая правая половина экрана.
+   ЧТО БЫЛО СЛОМАНО В РЕВИЗИИ 12
+   Регистры «зеркалили» разметку корпуса: брали дочерние элементы
+   #stack и #regs и пытались угадать, где подпись, а где значение.
+   В ячейке корпуса подпись и число лежат в разных узлах, поэтому
+   в квадрат попадала пустая строка, а иногда всё содержимое сразу.
+   Отсюда пустые ячейки и обрезки вместо чисел — сколько ни меняй
+   шрифт и ширину.
 
    ЧТО ТЕПЕРЬ
-   • .fld принудительно занимает всю ширину (width:100%, flex:0 0 auto).
-   • Регистры — сетка 5 в ряд на всю ширину, квадратные ячейки:
-     стек X·Y·Z·T·X1 одной строкой, R0–Rd тремя строками по пять.
-   • Значение крупное, моноширинное, с автоуменьшением для длинных
-     чисел — без обрезки многоточием.
+   Значения берутся напрямую из ядра: window.B334.ST (X, Y, Z, T,
+   X1 и массив R) и форматируются B.fmtNum — тем же способом, что
+   в отладчике b3-34-fix.js. Разметка корпуса больше не участвует.
+   Зеркало из DOM осталось только как запасной путь, если ядро
+   ещё не поднялось.
+
+   • Сетка 5 в ряд на всю ширину, квадратные ячейки.
+   • Подпись 10px сверху, значение 16px моноширинным.
+   • Длинные числа уменьшаются (12px / 9.5px), а не режутся.
    • Показывается ровно один экран из четырёх.
+   • Листание по шагам — по новой строке в журнале отладчика.
 
    Ядро b3-34.js и b3-34-fix.js не изменяются.
    ============================================================ */
@@ -42,7 +49,7 @@
       '.flwtabs,.flw .flwtabs{display:flex;gap:5px;margin:0;width:100%}',
       '.flwtabs button,#pnl9 .flwtabs button{flex:1 1 0;min-width:0;min-height:44px;'
         + 'padding:9px 1px;border-radius:10px;border:1px solid #DCDCD5;background:#F1F0EA;'
-        + 'color:#1B1B1B;font-family:inherit;font-size:12px;font-weight:600;letter-spacing:0;'
+        + 'color:#1B1B1B;font-family:inherit;font-size:12.5px;font-weight:600;letter-spacing:0;'
         + 'line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:clip;'
         + 'touch-action:manipulation}',
       '.flwtabs button.on,#pnl9 .flwtabs button.on{background:#2E7D32;border-color:#2E7D32;'
@@ -54,7 +61,7 @@
 
       /* строки шагов внутри панели */
       '#pnl9 .dbgbar{display:flex!important;flex-wrap:nowrap!important;gap:5px;margin:0!important;min-width:0}',
-      '#pnl9 .dbgbar button{flex:1 1 0;min-width:0;padding:9px 2px;font-size:12px}',
+      '#pnl9 .dbgbar button{flex:1 1 0;min-width:0;padding:9px 2px;font-size:12.5px}',
       '#pnl9 .dbgbar .step{background:#2E7D32;border-color:#2E7D32;color:#fff}',
       'body.mode-work #pnl9 .dbgbar{display:none!important}',
 
@@ -77,15 +84,14 @@
       '.rggrid,.rglist{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;'
         + 'gap:6px!important;width:100%!important;max-width:100%!important;box-sizing:border-box}',
       '.rgcell{display:flex!important;flex-direction:column;align-items:center;'
-        + 'justify-content:center;gap:1px;width:auto!important;min-width:0;'
+        + 'justify-content:center;gap:2px;width:auto!important;min-width:0;'
         + 'aspect-ratio:1/1;box-sizing:border-box;background:#F7F6F2;'
         + 'border:1px solid #E4E3DC;border-radius:10px;padding:2px;overflow:hidden}',
       '.rgcell i{display:block;font-style:normal;color:#6B6B63;font-size:10px;font-weight:700;'
         + 'letter-spacing:.3px;line-height:1;text-align:center;width:100%}',
       '.rgcell b{display:block;color:#1B1B1B;font-family:ui-monospace,"SF Mono",Menlo,monospace;'
-        + 'font-size:15px;font-weight:700;line-height:1.1;text-align:center;'
-        + 'font-variant-numeric:tabular-nums;max-width:100%;overflow:hidden;'
-        + 'word-break:break-all}',
+        + 'font-size:16px;font-weight:700;line-height:1.05;text-align:center;'
+        + 'font-variant-numeric:tabular-nums;max-width:100%;overflow:hidden;white-space:nowrap}',
       '.rgcell b.sm{font-size:12px}',
       '.rgcell b.xs{font-size:9.5px}',
       '.rgcell.ch{border-color:#9CC48C;background:#E6F2DF}',
@@ -102,7 +108,7 @@
       '#dbgProg .dbgprow{position:relative}',
       '#dbgProg .dbgprow.cur{background:#DDEFD2!important;box-shadow:inset 3px 0 0 #2E7D32!important;'
         + 'padding-left:16px!important}',
-      '#dbgProg .dbgprow.cur::before{content:"▶";position:absolute;left:3px;top:50%;'
+      '#dbgProg .dbgprow.cur::before{content:"\25B6";position:absolute;left:3px;top:50%;'
         + 'transform:translateY(-50%);font-size:9px;line-height:1;color:#2E7D32}',
       'body:not(.light) #dbgProg .dbgprow.cur{background:#2f4a2a!important;'
         + 'box-shadow:inset 3px 0 0 #8dffab!important}',
@@ -111,7 +117,7 @@
     document.head.appendChild(s);
   }
 
-  /* ---------------- чтение значений ---------------- */
+  /* ---------------- запасной путь: разметка корпуса ---------------- */
   function pick(c){
     var b = c.querySelector('b');
     var txt = (c.textContent || '').replace(/\s+/g, ' ').trim();
@@ -124,7 +130,7 @@
       var m = /^(.*?)([-+]?\d[\d\s.,eE+\-]*|∞|ЕГГОГ)$/.exec(txt);
       if(m){ if(!lab) lab = m[1].trim(); val = m[2].trim(); }
     }
-    return { lab: lab, val: val || '0' };
+    return { lab: lab, val: val || '' };
   }
 
   function cells(el){
@@ -145,7 +151,7 @@
     var d = document.createElement('div');
     d.className = 'rgcell' + (active ? ' ch' : '');
     var i = document.createElement('i');
-    i.textContent = it.lab || '—';
+    i.textContent = it.lab || '';
     var b = document.createElement('b');
     b.textContent = it.val;
     var cls = sizeCls(it.val);
@@ -157,13 +163,19 @@
   function drawStack(host, items){
     host.innerHTML = '';
     items.forEach(function(it, idx){
-      host.appendChild(cellBox(it, idx === 0));   /* X — первый, его подсвечиваем */
+      host.appendChild(cellBox(it, idx === 0));
     });
   }
 
   function drawGrid(host, items){
     host.innerHTML = '';
     items.forEach(function(it){ host.appendChild(cellBox(it, false)); });
+  }
+
+  /* ---------------- регистры: значения из ядра ---------------- */
+  function normRegName(name, i){
+    if(name === undefined || name === null || name === '') return String(i);
+    return String(name);
   }
 
   function makeMirror(){
@@ -173,35 +185,82 @@
     var h1 = document.createElement('div');
     h1.className = 'rgsec';
     h1.textContent = 'СТЕК X · Y · Z · T · X1';
-    var st = document.createElement('div');
-    st.className = 'rglist';
+    var stEl = document.createElement('div');
+    stEl.className = 'rglist';
 
     var h2 = document.createElement('div');
     h2.className = 'rgsec';
     h2.textContent = 'РЕГИСТРЫ R0–Rd';
-    var rg = document.createElement('div');
-    rg.className = 'rggrid';
+    var rgEl = document.createElement('div');
+    rgEl.className = 'rggrid';
 
-    box.appendChild(h1); box.appendChild(st);
-    box.appendChild(h2); box.appendChild(rg);
+    box.appendChild(h1); box.appendChild(stEl);
+    box.appendChild(h2); box.appendChild(rgEl);
 
     var lastKey = '';
-    function sync(){
-      var sCells = cells(document.getElementById('stack'));
-      var rCells = cells(document.getElementById('regs'));
-      var key = JSON.stringify([sCells, rCells]);
-      if(key === lastKey) return;
-      lastKey = key;
-      drawStack(st, sCells);
-      drawGrid(rg, rCells);
+
+    function fmtNum(B, v){
+      try{
+        if(B && typeof B.fmtNum === 'function') return String(B.fmtNum(v));
+      }catch(e){}
+      if(typeof v === 'number'){
+        if(!isFinite(v)) return 'ЕГГОГ';
+        return String(Math.round(v * 1e8) / 1e8);
+      }
+      return String(v);
     }
 
-    var obs = new MutationObserver(sync);
-    ['stack', 'regs'].forEach(function(id){
-      var el = document.getElementById(id);
-      if(el) obs.observe(el, { childList: true, subtree: true, characterData: true });
-    });
-    setInterval(sync, 500);
+    function readCore(){
+      var B = window.B334;
+      if(!B || !B.ST) return null;
+      var ST = B.ST;
+      var stack = [
+        ['X', ST.X], ['Y', ST.Y], ['Z', ST.Z], ['T', ST.T], ['X1', ST.X1]
+      ];
+      var regs = [];
+      var names = B.REG_NAMES || [];
+      var arr = ST.R || [];
+      var n = arr.length ? arr.length : 14;
+      for(var i = 0; i < n; i++){
+        regs.push(['R' + normRegName(names[i], i), arr[i]]);
+      }
+      return { stack: stack, regs: regs, B: B };
+    }
+
+    function renderCore(s){
+      stEl.innerHTML = '';
+      s.stack.forEach(function(p, idx){
+        stEl.appendChild(cellBox({ lab: p[0], val: fmtNum(s.B, p[1]) }, idx === 0));
+      });
+      rgEl.innerHTML = '';
+      s.regs.forEach(function(p){
+        rgEl.appendChild(cellBox({ lab: p[0], val: fmtNum(s.B, p[1]) }, false));
+      });
+    }
+
+    function sync(){
+      var s = readCore();
+      if(s){
+        var key = 'core|' + JSON.stringify([
+          s.stack.map(function(p){ return String(p[1]); }),
+          s.regs.map(function(p){ return String(p[1]); })
+        ]);
+        if(key === lastKey) return;
+        lastKey = key;
+        renderCore(s);
+        return;
+      }
+      /* ядро ещё не поднялось — берём разметку корпуса */
+      var sCells = cells(document.getElementById('stack'));
+      var rCells = cells(document.getElementById('regs'));
+      var domKey = 'dom|' + JSON.stringify([sCells, rCells]);
+      if(domKey === lastKey) return;
+      lastKey = domKey;
+      drawStack(stEl, sCells);
+      drawGrid(rgEl, rCells);
+    }
+
+    setInterval(sync, 300);
     sync();
     return box;
   }

@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Б3-34 · чистый старт</title>
+<style>
+  :root{
+    --bg:#f1efe8; --card:#ffffff; --line:#d8d5cb; --ink:#1b1b1b;
+    --mut:#6d6a61; --dark:#2b2b2b; --green:#35e07a; --acc:#2f7d4f;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg);color:var(--ink);
+    font:15px/1.35 -apple-system,"Segoe UI",Roboto,system-ui,sans-serif;
+    padding:10px 10px 96px;
+  }
+  h1{font-size:15px;margin:0 0 8px;color:var(--mut);font-weight:500;letter-spacing:.3px}
+
+  .seg{display:flex;gap:8px;margin-bottom:10px}
+  .seg button{
+    flex:1;min-height:46px;border:1px solid var(--line);border-radius:12px;
+    background:var(--card);color:var(--ink);font-size:15px;font-weight:600;
+  }
+  .seg button.on{background:var(--acc);border-color:var(--acc);color:#fff}
+
+  .scr{display:none}
+  .scr.on{display:block}
+  .panel{
+    background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:10px;margin-bottom:10px;
+  }
+  .ttl{font-size:11px;letter-spacing:.6px;color:var(--mut);margin:0 0 8px;text-transform:uppercase}
+
+  .dsp{
+    background:#1b1b1b;border-radius:12px;padding:12px 14px;margin-bottom:10px;
+    text-align:right;min-height:62px;display:flex;flex-direction:column;justify-content:center;
+  }
+  .dsp .hint{font-size:11px;color:#8f8f8f;text-align:left;min-height:14px}
+  .dsp .val{font-size:30px;font-weight:600;color:var(--green);font-family:ui-monospace,monospace}
+
+  /* ячейки корпуса и раздел «Регистры» — одна и та же сетка */
+  .cells{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;width:100%}
+  .cell{
+    background:var(--dark);border-radius:10px;padding:6px 4px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    aspect-ratio:1/1;min-width:0;overflow:hidden;
+  }
+  .cell .lb{font-size:10px;color:#9a9a9a;letter-spacing:.4px;line-height:1}
+  .cell .vl{
+    font-family:ui-monospace,monospace;color:var(--green);font-weight:600;
+    font-size:15px;line-height:1.1;margin-top:3px;
+    max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;
+  }
+  .cells.big .cell .vl{font-size:20px}
+  .cells.big .cell .lb{font-size:11px}
+
+  .keys{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:10px}
+  .keys button{
+    min-height:48px;border:1px solid var(--line);border-radius:10px;
+    background:#faf9f5;color:var(--ink);font-size:16px;font-weight:600;
+  }
+  .keys button.op{background:#e8e6df}
+  .keys button.act{background:var(--acc);border-color:var(--acc);color:#fff}
+  .keys button:active{filter:brightness(.93)}
+
+  .loglist{margin:0;padding:0;list-style:none;font-family:ui-monospace,monospace;font-size:13px}
+  .loglist li{padding:5px 0;border-bottom:1px solid #eeece5;color:var(--ink)}
+  .loglist li:last-child{border-bottom:0}
+  .empty{color:var(--mut);font-size:13px}
+
+  .stepper{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:10px}
+  .stepper button{
+    min-height:46px;border:1px solid var(--line);border-radius:12px;
+    background:var(--card);font-size:15px;font-weight:600;color:var(--ink);
+  }
+  body[data-mode="work"] .study-only{display:none !important}
+
+  .tabs{
+    position:fixed;left:10px;right:10px;bottom:10px;z-index:5;
+    display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;
+    background:var(--bg);padding-top:8px;
+  }
+  .tabs button{
+    min-height:48px;border:1px solid var(--line);border-radius:12px;
+    background:var(--card);font-size:13px;font-weight:600;color:var(--ink);
+    white-space:nowrap;overflow:hidden;
+  }
+  .tabs button.on{background:var(--acc);border-color:var(--acc);color:#fff}
+</style>
+</head>
+<body data-mode="study">
+
+<h1>Б3-34 · чистый старт</h1>
+
+<div class="seg">
+  <button data-mode-btn="work">Работа</button>
+  <button data-mode-btn="study" class="on">Учёба</button>
+</div>
+
+<div class="stepper study-only">
+  <button id="bStep">▶ Шаг</button>
+  <button id="bAuto">Авто</button>
+  <button id="b00">00</button>
+</div>
+
+<!-- 1. ЧИСЛА -->
+<section class="scr on" id="s-calc">
+  <div class="panel">
+    <p class="ttl">Стек и регистры</p>
+    <div class="cells" id="cellsCalc"></div>
+  </div>
+  <div class="panel">
+    <div class="dsp">
+      <div class="hint" id="hint"></div>
+      <div class="val" id="disp">0</div>
+    </div>
+    <div class="keys" id="keys"></div>
+  </div>
+</section>
+
+<!-- 2. РЕГИСТРЫ -->
+<section class="scr" id="s-regs">
+  <div class="panel">
+    <p class="ttl">Стек X · Y · Z · T · X1</p>
+    <div class="cells big" id="cellsRegsStack"></div>
+  </div>
+  <div class="panel">
+    <p class="ttl">Регистры R0–Rd</p>
+    <div class="cells big" id="cellsRegsMem"></div>
+  </div>
+</section>
+
+<!-- 3. КОД -->
+<section class="scr" id="s-code">
+  <div class="panel">
+    <p class="ttl">Программа</p>
+    <p class="empty">Программа не загружена — это следующий этап. Пока считает корпус.</p>
+  </div>
+</section>
+
+<!-- 4. ЖУРНАЛ -->
+<section class="scr" id="s-log">
+  <div class="panel">
+    <p class="ttl">Журнал операций</p>
+    <ul class="loglist" id="loglist"></ul>
+    <p class="empty" id="logEmpty">Здесь появятся операции.</p>
+  </div>
+</section>
+
+<nav class="tabs" id="tabs">
+  <button data-tab="calc" class="on">Числа</button>
+  <button data-tab="regs">Регистры</button>
+  <button data-tab="code">Код</button>
+  <button data-tab="log">Журнал</button>
+</nav>
+
+<script>
+(function(){
+  "use strict";
+
+  var M = {
+    x:0, y:0, z:0, t:0, x1:0,
+    R:new Array(14).fill(0),
+    buf:null,        // строка ввода, null — не вводим
+    pendReg:null,    // 'read' | 'write' — ждём номер регистра
+    log:[]
+  };
+
+  var REG_NAMES = ['R0','R1','R2','R3','R4','R5','R6','R7','R8','R9','Ra','Rb','Rc','Rd'];
+
+  /* ---------- формат ---------- */
+  function fmt(v){
+    if (v === null || v === undefined || isNaN(v)) return '0';
+    if (!isFinite(v)) return 'ЕГГОР';
+    if (v === 0) return '0';
+    var a = Math.abs(v);
+    if (a >= 1e8 || a < 1e-6){
+      return v.toExponential(4).replace('e', 'Е').replace('+', '');
+    }
+    var s = v.toFixed(6);
+    if (s.indexOf('.') >= 0) s = s.replace(/0+$/, '').replace(/\.$/, '');
+    return s;
+  }
+
+  /* ---------- ввод ---------- */
+  function commit(){
+    if (M.buf === null) return false;
+    var v = parseFloat(M.buf.replace(',', '.'));
+    M.x = isNaN(v) ? 0 : v;
+    M.buf = null;
+    return true;
+  }
+
+  function digit(d){
+    if (M.pendReg){ pickReg(Number(d)); return; }
+    if (M.buf === null) M.buf = '';
+    if (M.buf === '0') M.buf = '';
+    if (M.buf.replace('-', '').replace(',', '').length >= 12) return;
+    M.buf += d;
+    render();
+  }
+
+  function comma(){
+    if (M.pendReg) return;
+    if (M.buf === null) M.buf = '0,';
+    else if (M.buf.indexOf(',') < 0) M.buf += ',';
+    render();
+  }
+
+  function negate(){
+    if (M.pendReg) return;
+    if (M.buf !== null){
+      M.buf = (M.buf.charAt(0) === '-') ? M.buf.slice(1) : '-' + M.buf;
+    } else {
+      M.x = -M.x;
+    }
+    render();
+  }
+
+  /* ---------- стек ---------- */
+  function push(v){
+    M.x1 = M.t; M.t = M.z; M.z = M.y; M.y = M.x; M.x = v;
+  }
+
+  function dup(){                      // В↑
+    commit();
+    M.x1 = M.t; M.t = M.z; M.z = M.y; M.y = M.x;
+    logLine('В↑', fmt(M.x));
+  }
+
+  function swap(){                     // ↔
+    commit();
+    var a = M.x; M.x = M.y; M.y = a;
+    logLine('↔', fmt(M.x));
+  }
+
+  function cx(){                       // Сх
+    M.buf = null; M.pendReg = null; M.x = 0;
+    logLine('Сх', '0');
+  }
+
+  function unop(name, f){
+    commit();
+    var v = f(M.x);
+    M.x = v;
+    logLine(name, fmt(v));
+  }
+
+  function binop(name, f){
+    commit();
+    var r = f(M.y, M.x);
+    M.y = M.z; M.z = M.t; M.t = M.x1; M.x1 = 0;
+    M.x = r;
+    logLine(name, fmt(r));
+  }
+
+  /* ---------- регистры ---------- */
+  function pickReg(i){
+    if (i < 0 || i > 13) return;
+    var mode = M.pendReg;
+    M.pendReg = null;
+    if (mode === 'write'){
+      commit();
+      M.R[i] = M.x;
+      logLine('X→П ' + REG_NAMES[i], fmt(M.x));
+    } else {
+      commit();
+      push(M.R[i]);
+      logLine('П→X ' + REG_NAMES[i], fmt(M.x));
+    }
+    render();
+  }
+
+  /* ---------- журнал ---------- */
+  function logLine(op, res){
+    M.log.unshift(op + ' → ' + res);
+    if (M.log.length > 100) M.log.pop();
+    renderLog();
+  }
+
+  /* ---------- отрисовка ---------- */
+  var cellsCalc, regsStack, regsMem, dispEl, hintEl, logEl, logEmpty;
+
+  function mkCell(label){
+    var d = document.createElement('div');
+    d.className = 'cell';
+    var l = document.createElement('div');
+    l.className = 'lb'; l.textContent = label;
+    var v = document.createElement('div');
+    v.className = 'vl'; v.textContent = '0';
+    d.appendChild(l); d.appendChild(v);
+    return d;
+  }
+
+  function buildCells(host, labels){
+    host.innerHTML = '';
+    labels.forEach(function(n){
+      host.appendChild(mkCell(n));
+    });
+  }
+
+  function fillCells(host, values){
+    var nodes = host.querySelectorAll('.cell .vl');
+    for (var i = 0; i < nodes.length && i < values.length; i++){
+      var s = values[i];
+      nodes[i].textContent = s;
+      // длинные значения уменьшаем, чтобы не обрезались
+      nodes[i].style.fontSize = s.length > 12 ? '9px' : (s.length > 9 ? '11px' : '');
+    }
+  }
+
+  function stackValues(){
+    return [fmt(M.x), fmt(M.y), fmt(M.z), fmt(M.t), fmt(M.x1)];
+  }
+
+  function regValues(){
+    return M.R.map(fmt);
+  }
+
+  function render(){
+    dispEl.textContent = M.buf !== null ? M.buf : fmt(M.x);
+    hintEl.textContent = M.pendReg
+      ? (M.pendReg === 'read' ? 'П→X: выбери регистр цифрой' : 'X→П: выбери регистр цифрой')
+      : '';
+
+    var st = stackValues();
+    if (cellsCalc) fillCells(cellsCalc, st.concat(regValues()));
+    if (regsStack) fillCells(regsStack, st);
+    if (regsMem) fillCells(regsMem, regValues());
+  }
+
+  function renderLog(){
+    if (!logEl) return;
+    logEl.innerHTML = '';
+    M.log.forEach(function(line){
+      var li = document.createElement('li');
+      li.textContent = line;
+      logEl.appendChild(li);
+    });
+    logEmpty.style.display = M.log.length ? 'none' : '';
+  }
+
+  /* ---------- клавиатура ---------- */
+  var KEYMAP = [
+    { t:'7', k:function(){digit('7')} }, { t:'8', k:function(){digit('8')} },
+    { t:'9', k:function(){digit('9')} }, { t:'÷', cls:'op', k:function(){binop('÷', function(a,b){return a/b})} },
+    { t:'4', k:function(){digit('4')} }, { t:'5', k:function(){digit('5')} },
+    { t:'6', k:function(){digit('6')} }, { t:'×', cls:'op', k:function(){binop('×', function(a,b){return a*b})} },
+    { t:'1', k:function(){digit('1')} }, { t:'2', k:function(){digit('2')} },
+    { t:'3', k:function(){digit('3')} }, { t:'−', cls:'op', k:function(){binop('−', function(a,b){return a-b})} },
+    { t:'0', k:function(){digit('0')} }, { t:',', k:comma },
+    { t:'Сх', cls:'op', k:cx },          { t:'+', cls:'op', k:function(){binop('+', function(a,b){return a+b})} },
+    { t:'В↑', cls:'op', k:dup },         { t:'↔', cls:'op', k:swap },
+    { t:'x²', cls:'op', k:function(){unop('x²', function(v){return v*v})} },
+    { t:'√', cls:'op', k:function(){unop('√', Math.sqrt)} },
+    { t:'1/x', cls:'op', k:function(){unop('1/x', function(v){return 1/v})} },
+    { t:'x^y', cls:'op', k:function(){binop('x^y', Math.pow)} },
+    { t:'e^x', cls:'op', k:function(){unop('e^x', Math.exp)} },
+    { t:'ln', cls:'op', k:function(){unop('ln', Math.log)} },
+    { t:'π', cls:'op', k:function(){commit(); push(Math.PI); logLine('π', fmt(M.x));} },
+    { t:'/−/', cls:'op', k:negate },
+    { t:'П→X', cls:'act', k:function(){M.pendReg = 'read'; render();} },
+    { t:'X→П', cls:'act', k:function(){M.pendReg = 'write'; render();} }
+  ];
+
+  function buildKeys(){
+    var host = document.getElementById('keys');
+    host.innerHTML = '';
+    KEYMAP.forEach(function(item){
+      var b = document.createElement('button');
+      b.textContent = item.t;
+      if (item.cls) b.className = item.cls;
+      b.addEventListener('click', function(){ item.k(); render(); });
+      host.appendChild(b);
+    });
+  }
+
+  /* ---------- разделы и режимы ---------- */
+  function setTab(name){
+    var secs = { calc:'s-calc', regs:'s-regs', code:'s-code', log:'s-log' };
+    Object.keys(secs).forEach(function(k){
+      var el = document.getElementById(secs[k]);
+      if (el) el.classList.toggle('on', k === name);
+    });
+    var btns = document.querySelectorAll('#tabs button');
+    for (var i = 0; i < btns.length; i++){
+      btns[i].classList.toggle('on', btns[i].getAttribute('data-tab') === name);
+    }
+    render();
+  }
+
+  function setMode(m){
+    document.body.setAttribute('data-mode', m);
+    var btns = document.querySelectorAll('[data-mode-btn]');
+    for (var i = 0; i < btns.length; i++){
+      btns[i].classList.toggle('on', btns[i].getAttribute('data-mode-btn') === m);
+    }
+  }
+
+  /* ---------- старт ---------- */
+  function init(){
+    cellsCalc  = document.getElementById('cellsCalc');
+    regsStack  = document.getElementById('cellsRegsStack');
+    regsMem    = document.getElementById('cellsRegsMem');
+    dispEl     = document.getElementById('disp');
+    hintEl     = document.getElementById('hint');
+    logEl      = document.getElementById('loglist');
+    logEmpty   = document.getElementById('logEmpty');
+
+    buildCells(cellsCalc, ['X','Y','Z','T','X1','R0','R1','R2','R3','R4','R5','R6','R7','R8','R9','Ra','Rb','Rc','Rd']);
+    buildCells(regsStack, ['X','Y','Z','T','X1']);
+    buildCells(regsMem, REG_NAMES);
+
+    buildKeys();
+
+    document.getElementById('tabs').addEventListener('click', function(e){
+      var b = e.target.closest('button');
+      if (b) setTab(b.getAttribute('data-tab'));
+    });
+
+    document.querySelector('.seg').addEventListener('click', function(e){
+      var b = e.target.closest('button');
+      if (b) setMode(b.getAttribute('data-mode-btn'));
+    });
+
+    // до программы кнопки шага честно говорят, что программа не загружена
+    document.getElementById('bStep').addEventListener('click', function(){
+      logLine('Шаг', 'программа не загружена');
+      setTab('log');
+    });
+    document.getElementById('bAuto').addEventListener('click', function(){
+      logLine('Авто', 'программа не загружена');
+      setTab('log');
+    });
+    document.getElementById('b00').addEventListener('click', function(){
+      logLine('00', 'счётчик команд');
+      setTab('log');
+    });
+
+    render();
+    renderLog();
+  }
+
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
+</body>
+</html>

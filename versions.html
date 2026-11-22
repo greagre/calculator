@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Б3-34 — все версии</title>
+<style>
+  :root{
+    --bg:#141715; --panel:#1c211e; --panel2:#232925; --line:#2f3833;
+    --text:#e6ece8; --muted:#8d9a93; --accent:#3fbf6a; --warn:#e0a33a; --bad:#d9564a;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; padding:16px 14px 40px; background:var(--bg); color:var(--text);
+    font-family:-apple-system,Roboto,"Segoe UI",sans-serif; font-size:15px; line-height:1.45;
+  }
+  h1{font-size:20px; margin:0 0 4px; letter-spacing:.5px}
+  .sub{color:var(--muted); font-size:13px; margin-bottom:18px}
+  .card{
+    background:var(--panel); border:1px solid var(--line); border-radius:14px;
+    padding:13px 14px; margin-bottom:10px;
+  }
+  .card.work{border-color:#2f6b45; background:#1a2620}
+  .row{display:flex; align-items:baseline; gap:8px; flex-wrap:wrap}
+  .ver{font-size:16px; font-weight:600}
+  .tag{
+    font-size:11px; padding:2px 7px; border-radius:20px; border:1px solid var(--line);
+    color:var(--muted); white-space:nowrap;
+  }
+  .tag.ok{color:#8ee0a8; border-color:#356b47; background:#1d2f24}
+  .tag.warn{color:#e8c07a; border-color:#6b5630; background:#2b2519}
+  .tag.bad{color:#e8968e; border-color:#6b3a35; background:#2b1d1b}
+  .desc{color:#c3cdc7; font-size:14px; margin-top:7px}
+  .dep{color:var(--muted); font-size:12px; margin-top:8px; font-family:ui-monospace,monospace}
+  a.open{
+    display:inline-block; margin-top:11px; padding:9px 16px; border-radius:10px;
+    background:var(--accent); color:#0d1712; text-decoration:none; font-weight:600; font-size:14px;
+  }
+  a.open.ghost{background:transparent; color:var(--accent); border:1px solid #356b47}
+  h2{font-size:15px; margin:26px 0 10px; color:#bfd0c6; font-weight:600}
+  .note{
+    background:var(--panel2); border-left:3px solid var(--warn); border-radius:8px;
+    padding:11px 13px; font-size:13.5px; color:#d5ded8; margin-bottom:10px;
+  }
+  .note.green{border-left-color:var(--accent)}
+  ol{padding-left:20px; margin:8px 0 0; font-size:14px; color:#c8d2cc}
+  ol li{margin-bottom:6px}
+  code{font-family:ui-monospace,monospace; font-size:13px; color:#a8e0bb}
+</style>
+</head>
+<body>
+
+<h1>Б3-34 — все версии</h1>
+<div class="sub">Каждая версия — отдельный файл. Открывай нужную и не путайся.</div>
+
+<h2>Рабочие</h2>
+
+<div class="card work">
+  <div class="row">
+    <span class="ver">classic</span>
+    <span class="tag ok">рабочая</span>
+  </div>
+  <div class="desc">Калькулятор, отладчик, три раздела (Числа / Программа / Журнал), пошаговое выполнение, журнал и маршрут. Функции слоя F исправлены. Учебного режима нет.</div>
+  <div class="dep">b3-34.js · b3-34-fix.js?v=3 · b3-34-follow.js?v=2</div>
+  <a class="open" href="b3-34-classic.html">Открыть</a>
+</div>
+
+<div class="card">
+  <div class="row">
+    <span class="ver">v3</span>
+    <span class="tag">базовая</span>
+  </div>
+  <div class="desc">Чистый RPN без отладчика: ввод, стек, регистры, сохранение программ в TXT и JSON. Самая простая и стабильная.</div>
+  <div class="dep">b3-34.js · b3-34-export.js</div>
+  <a class="open ghost" href="b3-34-v3.html">Открыть</a>
+</div>
+
+<h2>Промежуточные</h2>
+
+<div class="card">
+  <div class="row">
+    <span class="ver">v4</span>
+    <span class="tag warn">зависимости общие</span>
+  </div>
+  <div class="desc">Первая версия после починки слоя F: тригонометрия, логарифмы и условные переходы заработали.</div>
+  <div class="dep">b3-34.js · b3-34-fix.js</div>
+  <a class="open ghost" href="b3-34-v4.html">Открыть</a>
+</div>
+
+<div class="card">
+  <div class="row">
+    <span class="ver">v5</span>
+    <span class="tag warn">зависимости общие</span>
+  </div>
+  <div class="desc">Появился отладчик: регистры X/Y/Z/T/X1, четырнадцать ячеек памяти, листинг программы, журнал шагов.</div>
+  <div class="dep">b3-34.js · b3-34-fix.js</div>
+  <a class="open ghost" href="b3-34-v5.html">Открыть</a>
+</div>
+
+<div class="card">
+  <div class="row">
+    <span class="ver">v6</span>
+    <span class="tag warn">зависимости общие</span>
+  </div>
+  <div class="desc">Отладчик разложен на три раздела со слежением за шагом. На этом всё и остановилось перед учебным режимом.</div>
+  <div class="dep">b3-34.js · b3-34-fix.js · b3-34-follow.js</div>
+  <a class="open ghost" href="b3-34-v6.html">Открыть</a>
+</div>
+
+<h2>Экспериментальные</h2>
+
+<div class="card">
+  <div class="row">
+    <span class="ver">v7</span>
+    <span class="tag bad">вёрстка раздута</span>
+  </div>
+  <div class="desc">Учебный режим со скрытием кнопок. Идея рабочая, но интерфейс вырос и стал занимать весь экран телефона. Пока не трогаем.</div>
+  <div class="dep">b3-34.js · b3-34-fix.js · b3-34-follow.js · b3-34-study.js</div>
+  <a class="open ghost" href="b3-34-v7.html">Открыть</a>
+</div>
+
+<h2>Почему версии иногда выглядят не так, как были</h2>
+
+<div class="note">
+  Страницы у каждой версии свои, а вот скрипты — общие. Файлы <code>b3-34-fix.js</code> и <code>b3-34-follow.js</code> перезаписывались при выпуске новых версий, поэтому старая страница могла подтянуть уже изменённый скрипт. Отсюда и «в v6 вдруг учебный режим».
+</div>
+
+<h2>Как хранить версии дальше</h2>
+
+<div class="note green">
+  Новое правило: выпустили версию — замораживаем её. Значит для неё создаются свои копии скриптов с номером в имени, например <code>b3-34-fix-v3.js</code>, и страница ссылается только на них. Старые файлы после этого не трогаются никогда.
+</div>
+
+<ol>
+  <li>Новая версия — новый файл страницы: <code>b3-34-v8.html</code>.</li>
+  <li>Её скрипты — копии с номером: <code>b3-34-fix-v3.js</code>.</li>
+  <li>Старые файлы больше не редактируются — только читаются.</li>
+  <li>Эта страница пополняется новой строкой сверху.</li>
+</ol>
+
+</body>
+</html>

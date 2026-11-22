@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Б3-34 — все версии</title>
+<title>Б3-34 — версии</title>
 <style>
   :root{
     --bg:#141715; --panel:#1c211e; --panel2:#232925; --line:#2f3833;
-    --text:#e6ece8; --muted:#8d9a93; --accent:#3fbf6a; --warn:#e0a33a; --bad:#d9564a;
+    --text:#e6ece8; --muted:#8d9a93; --accent:#3fbf6a; --warn:#e0a33a;
   }
   *{box-sizing:border-box}
   body{
@@ -29,7 +29,6 @@
   }
   .tag.ok{color:#8ee0a8; border-color:#356b47; background:#1d2f24}
   .tag.warn{color:#e8c07a; border-color:#6b5630; background:#2b2519}
-  .tag.bad{color:#e8968e; border-color:#6b3a35; background:#2b1d1b}
   .desc{color:#c3cdc7; font-size:14px; margin-top:7px}
   .dep{color:var(--muted); font-size:12px; margin-top:8px; font-family:ui-monospace,monospace}
   a.open{
@@ -43,100 +42,61 @@
     padding:11px 13px; font-size:13.5px; color:#d5ded8; margin-bottom:10px;
   }
   .note.green{border-left-color:var(--accent)}
-  ol{padding-left:20px; margin:8px 0 0; font-size:14px; color:#c8d2cc}
-  ol li{margin-bottom:6px}
   code{font-family:ui-monospace,monospace; font-size:13px; color:#a8e0bb}
 </style>
 </head>
 <body>
 
-<h1>Б3-34 — все версии</h1>
-<div class="sub">Каждая версия — отдельный файл. Открывай нужную и не путайся.</div>
+<h1>Б3-34 — версии</h1>
+<div class="sub">Три рабочие версии. Остальные файлы лежат в репозитории, но в работу не идут.</div>
 
-<h2>Рабочие</h2>
+<h2>Эталон</h2>
 
 <div class="card work">
+  <div class="row">
+    <span class="ver">Базовая</span>
+    <span class="tag ok">эталон</span>
+  </div>
+  <div class="desc">Чистый калькулятор: RPN, стек, регистры, ввод программ с клавиатуры, сохранение в TXT и JSON. Ни отладчика, ни учебного режима — то, от чего всё остальное считается.</div>
+  <div class="dep">b3-34.js · b3-34-export.js</div>
+  <a class="open" href="b3-34.html">Открыть</a>
+</div>
+
+<h2>С отладчиком</h2>
+
+<div class="card">
   <div class="row">
     <span class="ver">classic</span>
     <span class="tag ok">рабочая</span>
   </div>
-  <div class="desc">Калькулятор, отладчик, три раздела (Числа / Программа / Журнал), пошаговое выполнение, журнал и маршрут. Функции слоя F исправлены. Учебного режима нет.</div>
-  <div class="dep">b3-34.js · b3-34-fix.js?v=3 · b3-34-follow.js?v=2</div>
+  <div class="desc">Базовая плюс отладчик: регистры X/Y/Z/T/X1, четырнадцать ячеек памяти, листинг, журнал шагов и маршрут. Три раздела со слежением за шагом. Учебного режима нет — используется как основная.</div>
+  <div class="dep">b3-34.js · b3-34-fix.js?v=4 · b3-34-follow.js?v=2</div>
   <a class="open" href="b3-34-classic.html">Открыть</a>
 </div>
 
-<div class="card">
-  <div class="row">
-    <span class="ver">v3</span>
-    <span class="tag">базовая</span>
-  </div>
-  <div class="desc">Чистый RPN без отладчика: ввод, стек, регистры, сохранение программ в TXT и JSON. Самая простая и стабильная.</div>
-  <div class="dep">b3-34.js · b3-34-export.js</div>
-  <a class="open ghost" href="b3-34-v3.html">Открыть</a>
-</div>
-
-<h2>Промежуточные</h2>
-
-<div class="card">
-  <div class="row">
-    <span class="ver">v4</span>
-    <span class="tag warn">зависимости общие</span>
-  </div>
-  <div class="desc">Первая версия после починки слоя F: тригонометрия, логарифмы и условные переходы заработали.</div>
-  <div class="dep">b3-34.js · b3-34-fix.js</div>
-  <a class="open ghost" href="b3-34-v4.html">Открыть</a>
-</div>
-
-<div class="card">
-  <div class="row">
-    <span class="ver">v5</span>
-    <span class="tag warn">зависимости общие</span>
-  </div>
-  <div class="desc">Появился отладчик: регистры X/Y/Z/T/X1, четырнадцать ячеек памяти, листинг программы, журнал шагов.</div>
-  <div class="dep">b3-34.js · b3-34-fix.js</div>
-  <a class="open ghost" href="b3-34-v5.html">Открыть</a>
-</div>
-
-<div class="card">
-  <div class="row">
-    <span class="ver">v6</span>
-    <span class="tag warn">зависимости общие</span>
-  </div>
-  <div class="desc">Отладчик разложен на три раздела со слежением за шагом. На этом всё и остановилось перед учебным режимом.</div>
-  <div class="dep">b3-34.js · b3-34-fix.js · b3-34-follow.js</div>
-  <a class="open ghost" href="b3-34-v6.html">Открыть</a>
-</div>
-
-<h2>Экспериментальные</h2>
+<h2>С учебным режимом</h2>
 
 <div class="card">
   <div class="row">
     <span class="ver">v7</span>
-    <span class="tag bad">вёрстка раздута</span>
+    <span class="tag warn">вёрстка раздута</span>
   </div>
-  <div class="desc">Учебный режим со скрытием кнопок. Идея рабочая, но интерфейс вырос и стал занимать весь экран телефона. Пока не трогаем.</div>
+  <div class="desc">Classic плюс учебный режим со скрытием кнопок. Идея рабочая, но интерфейс вырос на весь экран телефона — переделывается: панель вниз, всё лишнее за «⋯».</div>
   <div class="dep">b3-34.js · b3-34-fix.js · b3-34-follow.js · b3-34-study.js</div>
   <a class="open ghost" href="b3-34-v7.html">Открыть</a>
 </div>
 
-<h2>Почему версии иногда выглядят не так, как были</h2>
+<h2>Что убрано и почему</h2>
 
 <div class="note">
-  Страницы у каждой версии свои, а вот скрипты — общие. Файлы <code>b3-34-fix.js</code> и <code>b3-34-follow.js</code> перезаписывались при выпуске новых версий, поэтому старая страница могла подтянуть уже изменённый скрипт. Отсюда и «в v6 вдруг учебный режим».
+  Промежуточные страницы <code>v2</code>, <code>v3</code>, <code>v4</code>, <code>v5</code>, <code>v6</code> из каталога убраны — их заменили classic и v7. Файлы на диске остались, открыть их по прямой ссылке по-прежнему можно, но в работу они не идут.
 </div>
 
-<h2>Как хранить версии дальше</h2>
+<h2>Правило на будущее</h2>
 
 <div class="note green">
-  Новое правило: выпустили версию — замораживаем её. Значит для неё создаются свои копии скриптов с номером в имени, например <code>b3-34-fix-v3.js</code>, и страница ссылается только на них. Старые файлы после этого не трогаются никогда.
+  Новая версия — новый файл страницы и свои копии скриптов с номером в имени (<code>b3-34-fix-v4.js</code>). Старые файлы после выпуска не редактируются никогда. Тогда страница всегда показывает ровно то, что было в день выпуска.
 </div>
-
-<ol>
-  <li>Новая версия — новый файл страницы: <code>b3-34-v8.html</code>.</li>
-  <li>Её скрипты — копии с номером: <code>b3-34-fix-v3.js</code>.</li>
-  <li>Старые файлы больше не редактируются — только читаются.</li>
-  <li>Эта страница пополняется новой строкой сверху.</li>
-</ol>
 
 </body>
 </html>

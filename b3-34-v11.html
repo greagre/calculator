@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Электроника Б3-34 — v11</title>
+<meta name="theme-color" content="#F6F5F1">
+<link rel="stylesheet" href="b3-34.css?v=3">
+</head>
+<body>
+<div class="wrap">
+
+  <div class="tabs">
+    <button data-tab="calc" class="on">🧮 Калькулятор</button>
+    <button data-tab="catalog">📚 Программы</button>
+  </div>
+
+  <div id="tabCalc">
+
+  <div class="case">
+    <div class="brand"><span>ЭЛЕКТРОНИКА</span><b>Б3-34 · v11</b></div>
+    <div class="lcdbox">
+      <div class="lcd" id="lcd">0</div>
+      <div class="lcdrow"><span id="lMode">АВТ</span><span id="lAddr"></span><span id="lPref"></span></div>
+    </div>
+    <div class="stack" id="stack"></div>
+    <div class="regs" id="regs"></div>
+    <div class="pad" id="pad"></div>
+    <div class="panel" id="panel" style="display:none"></div>
+  </div>
+
+  <div class="tools">
+    <button id="btnRun" class="run">▶ Пуск программы</button>
+    <button id="btnStop" class="stop">⏹ Стоп</button>
+    <button id="btnSpeed">🐢 Темп: оригинал</button>
+    <button id="btnSound" class="on">🔊 Звук: вкл</button>
+    <button id="btnVoice" class="on">🗣 Голос: вкл</button>
+    <button id="btnMic">🎤 Сказать</button>
+    <button id="btnPick" class="prim">📥 Пример…</button>
+    <button id="btnHelp">❓ Справка</button>
+    <button id="btnReset">⏻ Сброс</button>
+    <button id="btnDemo" style="display:none">📥 Пример: n!</button>
+    <button id="btnDemo2" style="display:none">📐 Пример: отрезок</button>
+    <button id="btnDemo3" style="display:none">🔢 Пример: НОД</button>
+  </div>
+
+  <div class="hint" id="hint">RPN: сначала число, затем В↑ и второе число, потом операция. Например 5 В↑ 3 + → 8.</div>
+
+  <div class="mem">
+    <div class="lbl">ПРОГРАММЫ: ПАМЯТЬ И ФАЙЛЫ</div>
+    <div class="proglist" id="progList"></div>
+    <div class="memrow">
+      <button id="btnSaveProg" class="prim">💾 Сохранить программу</button>
+      <button id="btnImportFile">⬆ Загрузить файл</button>
+      <button id="btnExportJson">⬇ Файл JSON</button>
+      <button id="btnExportTxt">⬇ Файл TXT</button>
+    </div>
+    <div class="memnote">Список хранится в памяти браузера на этом телефоне. Файлы JSON/TXT сохраняются в «Загрузки» — их можно перенести на другое устройство и загрузить обратно.</div>
+    <input type="file" id="fileInput" accept=".json,.txt,application/json,text/plain" style="display:none">
+  </div>
+
+  <div class="help" id="help">
+    <h3>Что нового в v11</h3>
+    <p><b>Регистры занимают всю ширину.</b> Раньше карточка раздела попадала во flex-контейнер и сжималась по содержимому: значения выстраивались узкой колонкой овалов слева, а правая половина экрана пустовала. Теперь ячейки — квадраты, пять в ряд на всю ширину экрана, как клавиши в корпусе.</p>
+    <p><b>Стек и регистры раздельно.</b> Вверху строка <code>X · Y · Z · T · X1</code>, ниже <code>R0–Rd</code> тремя строками по пять. Значение крупное, моноширинное; длинные числа автоматически уменьшаются, а не обрезаются.</p>
+    <p><b>Один экран из четырёх.</b> Кнопки внизу переключают карточки: виден ровно один, остальные скрыты.</p>
+    <p><b>Маркер в коде.</b> В разделе «Код» слева от выполняемой строки стоит <code>▶</code> и зелёная полоса по краю, листинг подкручивается за ней.</p>
+
+    <h3>Как смотреть выполнение</h3>
+    <p><b>1.</b> Внизу выбери <b>Учёба</b>. <b>2.</b> Открой <b>Код</b> — увидишь листинг с адресами и командами. <b>3.</b> Нажми <code>▶ Шаг</code> — маркер перейдёт на следующую строку. <b>4.</b> Нажми <code>⏵ Авто</code> — программа пойдёт сама, а экраны будут сменяться по шагам.</p>
+
+    <h3>Режимы</h3>
+    <p><b>Работа</b> — считать и набирать программы: <code>▶ Пуск</code>, <code>⏩ Темп</code>, <code>⏹ Стоп</code>, <code>📂 Программа</code>, <code>⟲ Сброс</code>. Строка <code>Шаг · Авто · 00</code> в Работе скрыта — она относится к Учёбе.</p>
+    <p><b>Учёба</b> — подробный разбор: <code>▶ Шаг</code>, <code>⏵ Авто</code>, <code>⟲ 00</code> и четыре экрана.</p>
+    <p>Выбор программы в <code>☰</code> сбрасывает выполнение (PC = 00) и возвращает в <b>Работу</b>.</p>
+
+    <h3>Экраны</h3>
+    <p><b>Числа</b> — корпус: индикатор, стек, клавиши. <b>Регистры</b> — X, Y, Z, T, X1 и R0–Rd крупными квадратами. <b>Код</b> — листинг с маркером текущей команды. <b>Журнал</b> — что менялось на каждом шаге и маршрут адресов.</p>
+
+    <h3>Темп смены экранов</h3>
+    <p>В <code>⋯</code> → «Меняются»: по шагу, каждую 1 / 2 / 5 / 10 секунд или только вручную. Таймерные режимы листают только пока идут шаги. Своё нажатие по кнопке экрана останавливает листание на 8 секунд.</p>
+
+    <h3>Как считать</h3>
+    <p>Обратная польская запись: <code>30</code> → <code>f</code> → <code>sin</code> даёт <code>0.5</code>. Сначала число, потом функция. <code>В↑</code> разделяет числа, <code>↔</code> меняет X и Y, <code>F◯</code> прокручивает стек.</p>
+
+    <h3>Режимы и слои</h3>
+    <p><code>f</code> → <code>ПРГ</code> — программирование: каждый шаг пишется двузначным кодом, переходы занимают три ячейки. <code>f</code> → <code>АВТ</code> — возврат к вычислениям.</p>
+    <p><code>f</code> открывает функции: sin, cos, tg, обратные, <code>lg</code>, <code>10^x</code>, условия <code>x&lt;0</code>, <code>x=0</code>, <code>x≥0</code>, <code>x≠0</code>, циклы <code>L0</code>–<code>L3</code>, <code>CF</code>. <code>k</code> — косвенные команды.</p>
+
+    <h3>Регистры и ЕГГОГ</h3>
+    <p>Под стеком 14 регистров: <code>R0</code>–<code>R9</code>, <code>Ra</code>–<code>Rd</code>. Короткое нажатие — вызвать в X, долгое — записать X в регистр.</p>
+    <p><b>ЕГГОГ</b> — переполнение порядка, деление на ноль, √ из отрицательного, lg от нуля, arcsin/arccos вне [−1; 1].</p>
+
+    <h3>Проверка</h3>
+    <p>Функции: <code>30</code> → <code>f</code> → <code>sin</code> → <b>0.5</b>; <code>1000</code> → <code>f</code> → <code>lg</code> → <b>3</b>.</p>
+    <p>Регистры: нажми <code>Регистры</code> — пять квадратов в ряд на всю ширину, значения крупные.</p>
+    <p>Маркер: Учёба → Код → <code>▶ Шаг</code>. Слева от строки появится стрелка и пойдёт вниз.</p>
+
+    <h3>Откат</h3>
+    <p>Прошлый вид — <code>b3-34-v10.html</code>, ещё раньше — <code>b3-34-v9.html</code>, <code>b3-34-v8.html</code> и <code>b3-34-classic.html</code>. Ядро <code>b3-34.js</code> во всех версиях одно и то же.</p>
+  </div>
+
+  </div><!-- /tabCalc -->
+
+  <div id="tabCatalog" style="display:none">
+    <input type="search" id="catSearch" class="catsearch" placeholder="Поиск по названию или коду команды: 61, √, НОД…">
+    <div class="catbar" id="catBar"></div>
+    <div class="catlist" id="catList"></div>
+  </div>
+
+</div>
+
+<div class="sheet" id="demoSheet">
+  <div class="sheetbox">
+    <div class="sheettop"><b>Готовые программы</b><button id="demoClose">✕</button></div>
+    <div class="sheetlist" id="demoList"></div>
+    <div class="sheetnote">Тот же список, что в боковой библиотеке ☰. После выбора программа загрузится в калькулятор вместе с числами для проверки.</div>
+  </div>
+</div>
+
+<script>
+/* Однократная проверка формата записей: раньше переход занимал две ячейки,
+   теперь три (команда + десятки + единицы). */
+(function(){
+  try{
+    if(localStorage.getItem('b334.fmt') === '6') return;
+    var KEY = 'b334.state.v3';
+    var raw = localStorage.getItem(KEY);
+    var bad = false;
+    if(raw){
+      var o = JSON.parse(raw);
+      var p = (o && Array.isArray(o.prog)) ? o.prog : null;
+      if(p){
+        var J = {};
+        [0x51,0x53,0x57,0x59,0x5C,0x5E,0x5D,0x5B,0x58,0x5A].forEach(function(c){ J[c] = 1; });
+        for(var i = 0; i < p.length; i++){
+          if(J[p[i]]){
+            var a = p[i+1], b = p[i+2];
+            if(!(typeof a === 'number' && a >= 0 && a <= 9 && typeof b === 'number' && b >= 0 && b <= 9)){
+              bad = true;
+              break;
+            }
+            i += 2;
+          }
+        }
+      }
+    }
+    if(bad) localStorage.removeItem(KEY);
+    localStorage.setItem('b334.fmt', '6');
+  }catch(e){}
+})();
+</script>
+
+<script src="b3-34-fix.js?v=4"></script>
+<script src="b3-34-follow.js?v=12"></script>
+<script src="b3-34-ui.js?v=6"></script>
+<script src="b3-34-work.js?v=2"></script>
+
+<script>
+(function(){
+  var btns = document.querySelectorAll('.tabs button');
+  function show(id){
+    var tc = document.getElementById('tabCalc');
+    var tk = document.getElementById('tabCatalog');
+    if(tc) tc.style.display = (id === 'catalog') ? 'none' : '';
+    if(tk) tk.style.display = (id === 'catalog') ? '' : 'none';
+    for(var i = 0; i < btns.length; i++){
+      btns[i].className = (btns[i].getAttribute('data-tab') === id) ? 'on' : '';
+    }
+  }
+  for(var i = 0; i < btns.length; i++){
+    btns[i].addEventListener('click', function(){
+      show(this.getAttribute('data-tab'));
+      window.scrollTo(0, 0);
+    });
+  }
+})();
+</script>
+
+<script>
+/* Кнопка «📥 Пример…»: список из catalog.js (window.B334Cat) */
+(function(){
+  var sheet = document.getElementById('demoSheet');
+  var list = document.getElementById('demoList');
+  var open = document.getElementById('btnPick');
+  var close = document.getElementById('demoClose');
+  if(!sheet || !list || !open) return;
+
+  function closeSheet(){ sheet.classList.remove('on'); }
+
+  function fill(){
+    list.innerHTML = '';
+    var cat = window.B334Cat;
+    if(!cat || !cat.progs || !cat.progs.length){
+      var d = document.createElement('div');
+      d.className = 'sheetnote';
+      d.textContent = 'Справочник не загрузился. Обнови страницу.';
+      list.appendChild(d);
+      return;
+    }
+    cat.progs.forEach(function(p){
+      var b = document.createElement('button');
+      b.className = 'sheetitem';
+
+      var ic = document.createElement('span');
+      ic.className = 'ic';
+      ic.textContent = p.icon || '📄';
+
+      var tx = document.createElement('span');
+      tx.className = 'tx';
+      var nm = document.createElement('span');
+      nm.textContent = p.title;
+      var sm = document.createElement('small');
+      sm.textContent = p.codes.length + ' шагов' + (p.check ? ' · ' + p.check : '');
+      tx.appendChild(nm);
+      tx.appendChild(sm);
+
+      b.appendChild(ic);
+      b.appendChild(tx);
+      b.addEventListener('click', function(){
+        closeSheet();
+        cat.load(p);
+      });
+      list.appendChild(b);
+    });
+  }
+
+  open.addEventListener('click', function(){
+    fill();
+    sheet.classList.add('on');
+  });
+  if(close) close.addEventListener('click', closeSheet);
+  sheet.addEventListener('click', function(e){ if(e.target === sheet) closeSheet(); });
+})();
+</script>
+</body>
+</html>

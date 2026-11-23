@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Электроника Б3-34 — v14</title>
+<meta name="theme-color" content="#F6F5F1">
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:#15160f;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+#fr{position:fixed;left:0;right:0;top:0;bottom:186px;width:100%;border:0;background:#15160f;display:block}
+#ov{position:fixed;left:0;right:0;top:0;bottom:186px;z-index:15;background:#15160f;color:#e9e6db;overflow:auto;padding:10px;display:none}
+#ov .lst{background:#1e2119;border:1px solid #383b30;border-radius:10px;padding:10px;font:12px/1.55 ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap}
+#pnl{position:fixed;left:0;right:0;bottom:0;z-index:30;background:#F6F5F1;border-top:1px solid #DAD7CE;padding:7px 10px calc(8px + env(safe-area-inset-bottom));color:#222}
+#pnl.dark{background:#20241c;border-top-color:#3a4232;color:#e9e6db}
+.pStep{display:flex;align-items:center;gap:8px;font-size:12px;color:#6B6B6B}
+#pnl.dark .pStep{color:#9aa794}
+.pBar{flex:1;height:4px;background:#DEDAD0;border-radius:2px;overflow:hidden}
+#pnl.dark .pBar{background:#3a4232}
+.pBar i{display:block;height:100%;width:0;background:#2E7D32;transition:width .15s}
+.pRow{display:flex;gap:6px;margin-top:5px}
+.pRow button{flex:1;padding:10px 4px;border:1px solid #DCD8CE;border-radius:10px;background:#fff;color:#222;font:inherit;font-size:13px}
+#pnl.dark .pRow button{background:#2b2d26;border-color:#45473c;color:#ddd8c9}
+.pRow button.on{background:#2E7D32;color:#fff;border-color:#2E7D32}
+.pRow button:active{opacity:.85}
+#mMenu{flex:0 0 44px}
+</style>
+</head>
+<body>
+
+<iframe id="fr" src="b3-34.html"></iframe>
+
+<div id="ov"><div class="lst" id="ovBox">…</div></div>
+
+<div id="pnl">
+  <div class="pStep"><span id="pStepTxt">шаг 0</span><div class="pBar"><i id="pBarFill"></i></div><span id="pPc">PC —</span></div>
+  <div class="pRow">
+    <button id="mWork">Работа</button>
+    <button id="mStudy" class="on">Учёба</button>
+    <button id="mMenu">☰</button>
+  </div>
+  <div class="pRow">
+    <button data-scr="num" class="on">Числа</button>
+    <button data-scr="reg">Регистры</button>
+    <button data-scr="code">Код</button>
+    <button data-scr="log">Журнал</button>
+  </div>
+  <div class="pRow" id="pCtl"></div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+var fr = document.getElementById('fr');
+var pnl = document.getElementById('pnl');
+var ov = document.getElementById('ov');
+var ovBox = document.getElementById('ovBox');
+var pStepTxt = document.getElementById('pStepTxt');
+var pPc = document.getElementById('pPc');
+var pBar = document.getElementById('pBarFill');
+var pCtl = document.getElementById('pCtl');
+
+var D = null, W = null;
+var mode = 'study';
+var scr = 'num';
+var steps = 0;
+var auto = false;
+var total = 0;
+var log = [];
+var lastTxt = '';
+
+/* ---------- подключение к калькулятору ---------- */
+function init(){
+  D = fr.contentDocument;
+  W = fr.contentWindow;
+  if(!D) return;
+
+  var st = D.createElement('style');
+  st.textContent = '.only-regs .pad,.only-regs .lcdbox,.only-regs .brand,.only-regs .tools,.only-regs .tabs,.only-regs .mem,.only-regs .hint{display:none!important}.only-regs .wrap{max-width:none!important}.only-regs body{padding:4px}';
+  D.head.appendChild(st);
+
+  var tools = D.querySelector('.tools');
+  if(tools) tools.style.display = 'none';
+
+  showScr('num');
+  drawCtl();
+  upd();
+  buildCode();
+}
+
+fr.addEventListener('load', init);
+
+/* ---------- доступ к элементам калькулятора ---------- */
+function el(id){ return D ? D.getElementById(id) : null; }
+function q(sel){ return D ? D.querySelector(sel) : null; }
+
+function clickReal(id){
+  var e = el(id);
+  if(e) e.click();
+}
+
+function keyByText(t){
+  if(!D) return false;
+  var bs = D.querySelectorAll('#pad .key');
+  for(var i = 0; i < bs.length; i++){
+    if(bs[i].textContent.trim() === t){ bs[i].click(); return true; }
+  }
+  return false;
+}
+
+/* на клавиатуре может быть открыт слой f или k — возвращаем основной */
+function baseLayer(){
+  if(keyByText('ПП')) return true;
+  keyByText('f');
+  keyByText('k');
+  return keyByText('ПП');
+}
+
+/* ---------- действия ---------- */
+function doStep(){
+  if(!D) return;
+  if(!baseLayer()) return;
+  steps++;
+  setTimeout(pushLog, 40);
+  upd();
+}
+
+function doAuto(){
+  auto = true;
+  clickReal('btnRun');
+  upd();
+}
+
+function doRun(){
+  auto = true;
+  clickReal('btnRun');
+  upd();
+}
+
+function doStop(){
+  auto = false;
+  clickReal('btnStop');
+  setTimeout(buildCode, 300);
+  upd();
+}
+
+function doSpeed(){
+  clickReal('btnSpeed');
+}
+
+function doZero(){
+  baseLayer();
+  keyByText('В/О');
+  steps = 0;
+  upd();
+}
+
+function doClear(){
+  auto = false;
+  clickReal('btnReset');
+  steps = 0;
+  log = [];
+  lastTxt = '';
+  ovBox.textContent = 'Пока пусто — сделай несколько шагов.';
+  setTimeout(buildCode, 300);
+  upd();
+}
+
+function doProgram(){
+  var p = el('btnPick');
+  if(p) p.click();
+}
+
+/* ---------- счётчик и адрес ---------- */
+function upd(){
+  pStepTxt.textContent = 'шаг ' + steps;
+  var w = total ? Math.min(100, steps / total * 100) : 0;
+  pBar.style.width = w + '%';
+}
+
+function readState(){
+  var a = q('#lAddr');
+  var m = q('#lMode');
+  var t = a ? a.textContent.trim() : '';
+  var md = m ? m.textContent.trim() : '';
+  pPc.textContent = 'PC ' + (t || '—') + (md ? ' · ' + md : '');
+
+  var s = q('#stack');
+  if(!s) return;
+  var v = s.textContent.replace(/\s+/g, ' ').trim();
+  if(v && v !== lastTxt){
+    lastTxt = v;
+    if(auto){ steps++; upd(); pushLog(); }
+  }
+}
+
+function pushLog(){
+  var s = q('#stack');
+  if(!s) return;
+  var v = s.textContent.replace(/\s+/g, ' ').trim();
+  if(!v) return;
+  if(log.length && log[log.length - 1] === v) return;
+  log.push(steps + ' · ' + v);
+  if(log.length > 200) log.shift();
+  if(scr === 'log') ovBox.textContent = log.join('\n');
+}
+
+/* ---------- листинг ---------- */
+var CMD = {
+  10:'+',11:'−',12:'×',13:'÷',14:'↔',15:'10^x',16:'e^x',17:'lg',18:'ln',
+  0x19:'arcsin',0x1A:'arccos',0x1B:'arctg',0x1C:'sin',0x1D:'cos',0x1E:'tg',
+  0x20:'π',0x21:'√',0x22:'x²',0x23:'1/x',0x24:'x^y',0x25:'F◯',
+  0x50:'С/П',0x51:'БП',0x52:'В/О',0x53:'ПП',0x54:'К НОП',
+  0x57:'F x≠0',0x58:'F L2',0x59:'F x≥0',0x5A:'F L3',0x5B:'F L1',0x5C:'F x<0',0x5D:'F L0',0x5E:'F x=0',
+  0x0A:'·',0x0B:'/-/',0x0C:'ВП',0x0D:'Cx',0x0E:'В↑',0x0F:'Вx'
+};
+var RN = '0123456789abcd';
+
+function nm(c){
+  if(c >= 0 && c <= 9) return String(c);
+  if(CMD[c]) return CMD[c];
+  if(c >= 0x40 && c <= 0x4D) return 'X→П ' + RN[c & 15];
+  if(c >= 0x60 && c <= 0x6D) return 'П→X ' + RN[c & 15];
+  if(c >= 0x70 && c <= 0x7D) return 'К x≠0 ' + RN[c & 15];
+  if(c >= 0x80 && c <= 0x8D) return 'К БП ' + RN[c & 15];
+  if(c >= 0x90 && c <= 0x9D) return 'К x≥0 ' + RN[c & 15];
+  if(c >= 0xA0 && c <= 0xAD) return 'К ПП ' + RN[c & 15];
+  if(c >= 0xB0 && c <= 0xBD) return 'К X→П ' + RN[c & 15];
+  if(c >= 0xC0 && c <= 0xCD) return 'К x<0 ' + RN[c & 15];
+  if(c >= 0xD0 && c <= 0xDD) return 'К П→X ' + RN[c & 15];
+  if(c >= 0xE0 && c <= 0xED) return 'К x=0 ' + RN[c & 15];
+  return '?';
+}
+
+function isJump(c){
+  return c === 0x51 || c === 0x53 || c === 0x57 || c === 0x59 ||
+         c === 0x5C || c === 0x5E || c === 0x5D || c === 0x5B ||
+         c === 0x58 || c === 0x5A;
+}
+
+function readProg(){
+  if(!D) return null;
+  try{
+    var raw = W.localStorage.getItem('b334.state.v3');
+    if(!raw) return null;
+    var o = JSON.parse(raw);
+    return (o && Array.isArray(o.prog)) ? o.prog : null;
+  }catch(e){ return null; }
+}
+
+function buildCode(){
+  var p = readProg();
+  if(!p){ total = 0; ovBox.textContent = 'Программа ещё не набиралась.'; return; }
+  var last = -1;
+  for(var i = 0; i < 98; i++){ if(p[i] !== 0x54) last = i; }
+  total = last + 1;
+  if(last < 0){
+    ovBox.textContent = 'Программа пуста. Набери её в режиме ПРГ (f → ПРГ) и вернись сюда.';
+    return;
+  }
+  var addr = {};
+  for(var k = 0; k <= last; k++){ if(isJump(p[k])){ addr[k + 1] = 1; addr[k + 2] = 1; } }
+  var out = [];
+  for(var j = 0; j <= last; j++){
+    var a = (j < 10 ? '0' : '') + j;
+    if(addr[j]){
+      out.push(a + ': ' + (p[j] & 15) + '   цифра адреса');
+    }else{
+      var h = (p[j] & 255).toString(16).toUpperCase();
+      if(h.length < 2) h = '0' + h;
+      out.push(a + ': ' + h + '   ' + nm(p[j]));
+    }
+  }
+  ovBox.textContent = out.join('\n');
+}
+
+/* ---------- экраны ---------- */
+function showScr(name){
+  scr = name;
+  var isNum = (name === 'num');
+  var isReg = (name === 'reg');
+
+  ov.style.display = (name === 'code' || name === 'log') ? 'block' : 'none';
+
+  if(D){
+    if(isReg) D.body.classList.add('only-regs');
+    else D.body.classList.remove('only-regs');
+  }
+
+  if(name === 'code') buildCode();
+  if(name === 'log'){
+    ovBox.textContent = log.length ? log.join('\n') : 'Пока пусто — сделай несколько шагов.';
+  }
+
+  var bs = document.querySelectorAll('[data-scr]');
+  for(var i = 0; i < bs.length; i++){
+    bs[i].className = (bs[i].getAttribute('data-scr') === name) ? 'on' : '';
+  }
+}
+
+/* ---------- кнопки режима ---------- */
+function mk(text, fn){
+  var b = document.createElement('button');
+  b.textContent = text;
+  b.addEventListener('click', fn);
+  pCtl.appendChild(b);
+}
+
+function drawCtl(){
+  pCtl.innerHTML = '';
+  if(mode === 'study'){
+    mk('▶ Шаг', doStep);
+    mk('Авто', doAuto);
+    mk('00', doZero);
+    mk('Очистить', doClear);
+    mk('⋯', doMenu);
+  }else{
+    mk('▶ Пуск', doRun);
+    mk('Темп', doSpeed);
+    mk('Стоп', doStop);
+    mk('Программа', doProgram);
+    mk('⋯', doMenu);
+  }
+}
+
+function doMenu(){
+  pCtl.innerHTML = '';
+  mk('Тема', function(){
+    pnl.className = (pnl.className === 'dark') ? '' : 'dark';
+    drawCtl();
+  });
+  mk('Темп', function(){ doSpeed(); doMenu(); });
+  mk('Справка', function(){
+    alert('Шаг — одна команда. Авто и Пуск — прогон программы. 00 — на адрес начала.\n\nКлавиши f и k открывают слои; в режиме ПРГ каждая клавиша пишет свой код, переходы занимают три ячейки.\n\nЭкраны: Регистры показывают стек и R0–Rd во всю ширину, Код и Журнал — листинг и история шагов.');
+    drawCtl();
+  });
+  mk('Назад', drawCtl);
+}
+
+function setMode(m){
+  mode = m;
+  document.getElementById('mWork').className = (m === 'work') ? 'on' : '';
+  document.getElementById('mStudy').className = (m === 'study') ? 'on' : '';
+  drawCtl();
+}
+
+/* ---------- привязки ---------- */
+document.getElementById('mWork').addEventListener('click', function(){ setMode('work'); });
+document.getElementById('mStudy').addEventListener('click', function(){ setMode('study'); });
+document.getElementById('mMenu').addEventListener('click', function(){
+  alert('Тема, темп и справка — в кнопке ⋯ справа. Библиотека программ — вкладка «📚 Программы» внутри калькулятора.');
+});
+
+var scrs = document.querySelectorAll('[data-scr]');
+for(var i = 0; i < scrs.length; i++){
+  scrs[i].addEventListener('click', function(){
+    showScr(this.getAttribute('data-scr'));
+  });
+}
+
+/* ---------- наблюдение ---------- */
+setInterval(readState, 250);
+setInterval(function(){
+  if(scr === 'code') buildCode();
+}, 1500);
+
+})();
+</script>
+</body>
+</html>
